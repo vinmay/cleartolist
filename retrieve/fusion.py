@@ -14,6 +14,7 @@ class Candidate:
     sources: dict[str, int] = field(default_factory=dict)  # source name -> 1-based rank in that list
     exact: list[str] = field(default_factory=list)  # e.g. ["model:AB123", "upc:0123..."]
     best_image: str | None = None
+    image_score: float | None = None  # cosine of the best-matching recall photo, if image search ran
 
 
 def rrf(ranked_lists: dict[str, list[int]], k: int = RRF_K, weights: dict[str, float] | None = None) -> list[Candidate]:

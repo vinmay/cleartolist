@@ -135,7 +135,7 @@ function renderScan(r, file) {
       <dl class="kv" style="margin-top:12px"><dt>Hazard</dt><dd>${esc(m.hazards.join("; ") || "see recall")}</dd>
       <dt>Remedy</dt><dd>${esc(m.remedies.join("; ") || "see recall")}</dd>
       <dt>Evidence</dt><dd class="chips">${(m.exact || []).map((e) => `<span>${esc(e)}</span>`).join("")}${Object.keys(m.sources || {}).map((s) => `<span>${esc(s)} #${m.sources[s]}</span>`).join("")}</dd>
-      ${m.judgment ? `<dt>Gemma says</dt><dd>${esc(m.judgment.reason)}</dd>` : ""}</dl></div>`;
+      ${r.verifier && r.verifier.reason ? `<dt>Gemma says</dt><dd>${esc(r.verifier.reason)}</dd>` : ""}</dl></div>`;
   }
   if (r.verdict === "LIKELY" || r.verdict === "UNSURE") {
     html += `<div class="panel"><strong>Next step: photograph the label.</strong> Look for a sticker with a model number, date code or barcode (under the seat, on the frame, on the base), then scan that photo.

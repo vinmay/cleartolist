@@ -33,6 +33,7 @@ ROWS = WORK / "rows.jsonl"
 OUT_MD = Path("eval/results.md")
 OUT_JSON = Path("eval/results.json")
 FLAG = {Verdict.CONFIRMED.value, Verdict.LIKELY.value}
+VERIFY_K = 3  # verify the top 3 fused candidates
 
 
 def run_query(q: dict[str, Any], vision: OllamaVision) -> dict[str, Any]:
@@ -52,14 +53,16 @@ def run_query(q: dict[str, Any], vision: OllamaVision) -> dict[str, Any]:
                 e.startswith(("model:", "upc:")) for c in res.candidates for e in c.exact
             )
     t = time.perf_counter()
-    s = scan(img, mode="fused", verify=True, k=5, exclude_keys=q["exclude"], read=item, vision=vision)
+    s = scan(img, mode="fused", verify=True, k=VERIFY_K, exclude_keys=q["exclude"], read=item, vision=vision)
     row["scan_s"] = round(time.perf_counter() - t + read_s, 2)
     row["verdict"] = s.verdict.value
-    flagged = [m for m in s.matches if m.get("verdict") == s.verdict.value]
-    row["verdict_recall_id"] = flagged[0]["recall_id"] if flagged else None
-    row["verified_top_id"] = s.matches[0]["recall_id"] if s.matches else None
-    row["judgments"] = [{"recall_id": m["recall_id"], "verdict": m.get("verdict"), **m.get("judgment", {})}
-                        for m in s.matches]
+    # matches[0] is the recall the verdict refers to (the verifier's pick or a code hit), if any
+    refers = s.matches[0]["recall_id"] if s.matches and s.verdict != Verdict.NO_MATCH else None
+    row["verdict_recall_id"] = refers
+    row["verified_top_id"] = refers
+    row["verifier"] = s.choice.__dict__ if s.choice else None
+    row["candidates"] = [{"recall_id": m["recall_id"], "exact": m["exact"], "image_score": m["image_score"]}
+                         for m in s.matches]
     return row
 
 
@@ -105,7 +108,7 @@ def f(x: Any) -> str:
 
 
 def report(rows: list[dict[str, Any]], meta: dict[str, Any]) -> None:
-    runs = {run: [r for r in rows if r["run"] == run] for run in ("children", "mixed", "owner")}
+    runs = {run: [r for r in rows if r["run"] == run] for run in ("children", "mixed", "label", "owner")}
     runs = {k: v for k, v in runs.items() if v}
     summ = {run: summarize(rs) for run, rs in runs.items()}
     cats: dict[str, dict[str, Any]] = {}
@@ -161,9 +164,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--runs", default="children,mixed,owner")
+    ap.add_argument("--runs", default="children,mixed,label,owner")
+    ap.add_argument("--dev", action="store_true", help="run on the tuning split; results are not written to eval/")
     a = ap.parse_args()
-    queries = json.loads((WORK / "queries.json").read_text())
+    global ROWS, OUT_MD, OUT_JSON
+    if a.dev:
+        ROWS, OUT_MD, OUT_JSON = WORK / "dev_rows.jsonl", WORK / "dev_results.md", WORK / "dev_results.json"
+    queries = json.loads((WORK / ("dev_queries.json" if a.dev else "queries.json")).read_text())
     queries = [q for q in queries if q["run"] in a.runs.split(",")]
     if a.limit:
         queries = queries[: a.limit]

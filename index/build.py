@@ -16,6 +16,7 @@ import re
 import sqlite3
 import sys
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -164,13 +165,9 @@ _KIND_PROMPTS = ["a photo of a product", "a close-up photo of a label, sticker, 
                  "a diagram or illustration with text", "a photo of packaging or a box"]
 
 
-def image_kinds(store: VectorStore, model: str = DEFAULT_IMAGE_MODEL) -> np.ndarray:
-    """Zero-shot tag each indexed image as product / label / diagram / packaging (cached)."""
-    path = VEC_DIR / f"kinds_{slug(model)}.npz"
-    if path.exists():
-        z = np.load(path)
-        if len(z["keys"]) == len(store.keys) and (z["keys"] == store.keys).all():
-            return z["kinds"]
+@lru_cache(maxsize=2)
+def kind_text_vectors(model: str = DEFAULT_IMAGE_MODEL) -> np.ndarray:
+    """SigLIP text embeddings of the image-kind prompts, (len(KIND_LABELS), d)."""
     import torch
     from transformers import AutoTokenizer
 
@@ -181,8 +178,22 @@ def image_kinds(store: VectorStore, model: str = DEFAULT_IMAGE_MODEL) -> np.ndar
     with torch.inference_mode():
         tf = emb.model.get_text_features(**t)
         tf = tf if isinstance(tf, torch.Tensor) else tf.pooler_output
-    tv = torch.nn.functional.normalize(tf.float(), dim=-1).cpu().numpy()
-    kinds = np.array(KIND_LABELS)[(store.vectors @ tv.T).argmax(1)]
+    return torch.nn.functional.normalize(tf.float(), dim=-1).cpu().numpy()
+
+
+def classify_kinds(vectors: np.ndarray, model: str = DEFAULT_IMAGE_MODEL) -> np.ndarray:
+    """Zero-shot image kind (product / label / diagram / packaging) for L2-normalized image vectors."""
+    return np.array(KIND_LABELS)[(np.atleast_2d(vectors) @ kind_text_vectors(model).T).argmax(1)]
+
+
+def image_kinds(store: VectorStore, model: str = DEFAULT_IMAGE_MODEL) -> np.ndarray:
+    """Kind of every indexed image (cached alongside the vectors)."""
+    path = VEC_DIR / f"kinds_{slug(model)}.npz"
+    if path.exists():
+        z = np.load(path)
+        if len(z["keys"]) == len(store.keys) and (z["keys"] == store.keys).all():
+            return z["kinds"]
+    kinds = classify_kinds(store.vectors, model)
     np.savez(path, keys=store.keys, kinds=kinds)
     return kinds
 

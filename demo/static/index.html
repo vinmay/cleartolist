@@ -104,7 +104,7 @@ fetch("/api/gallery").then((r) => r.json()).then((items) => {
   if (!items.length) { $("#gallery").innerHTML = `<p class="meta">No scans published yet.</p>`; return; }
   $("#gallery").innerHTML = items.map((s) => `<div class="scan">
     <div class="v ${cls(s.verdict)}">${esc(s.verdict)}</div>
-    <div class="pair"><img src="/gallery/${esc(s.photo)}" alt="Scanned photo" loading="lazy"><img src="${esc(s.recall_image_url || "")}" alt="Recall photo" loading="lazy"></div>
+    <div class="pair"><img src="${esc(s.photo_url)}" alt="Scanned photo" loading="lazy"><img src="${esc(s.recall_image_url || "")}" alt="Recall photo" loading="lazy"></div>
     <div class="body"><div class="meta">${esc(s.photo_source)}</div>
     ${s.recall_url ? `<a href="${esc(s.recall_url)}" target="_blank" rel="noopener">${esc(s.recall_title)}</a>` : ""}
     <div class="meta">${esc(s.evidence || "")}</div>

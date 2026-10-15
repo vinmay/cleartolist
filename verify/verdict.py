@@ -1,4 +1,4 @@
-"""Map verifier judgments + exact-match evidence to a verdict. Pure logic, unit-tested."""
+"""Map the verifier's forced choice + exact-match evidence to a verdict. Pure logic, unit-tested."""
 
 from __future__ import annotations
 
@@ -18,36 +18,41 @@ class Verdict(str, Enum):
 
 
 @dataclass
-class Judgment:
-    same_product_type: bool
-    same_brand: str  # "yes" | "no" | "cannot_tell"
-    model_consistent: str  # "yes" | "no" | "cannot_tell"
-    visual_match: str  # "strong" | "partial" | "weak"
+class Choice:
+    """What the verifier answered when shown the seller's photo next to all candidate recall photos."""
+
+    index: int | None  # 0-based candidate the verifier says is the same product design, or None
+    confidence: str = "low"  # "high" | "medium" | "low"
+    same_brand: str = "cannot_tell"  # "yes" | "no" | "cannot_tell"
+    model_consistent: str = "cannot_tell"  # "yes" | "no" | "cannot_tell"
     reason: str = ""
 
 
-def candidate_verdict(j: Judgment, exact: list[str]) -> Verdict:
-    """Verdict for one candidate recall.
+def has_code(exact: list[str]) -> bool:
+    return any(e.startswith(("model:", "upc:")) for e in exact)
 
-    CONFIRMED  a model number or UPC read from the photo matches this recall, and the verifier agrees
-               it is the same kind of product.
-    LIKELY     same product type, strong visual match, and nothing visible contradicts brand or model.
-    UNSURE     some evidence, but weak or conflicting. Never presented as a match.
-    NO MATCH   different product, or a legible model number that is not one of the recalled models.
+
+def decide(choice: Choice, exact: list[list[str]]) -> tuple[Verdict, int | None]:
+    """Return (verdict, index of the candidate it refers to).
+
+    CONFIRMED  a model number / UPC read from the photo matches a recall, and the verifier picked that recall.
+    LIKELY     the verifier picked a recall with high confidence; no visible brand or model contradicts it.
+    UNSURE     conflicting or weaker evidence: a code hit the verifier did not pick, a pick with lower
+               confidence, or a pick whose visible brand differs. Never presented as a match.
+    NO MATCH   no pick and no code hit, or the visible model number is not one of the recalled models.
     """
-    has_code = any(e.startswith(("model:", "upc:")) for e in exact)
-    if not j.same_product_type:
-        return Verdict.NO_MATCH
-    if has_code:
-        return Verdict.CONFIRMED if j.same_brand != "no" else Verdict.UNSURE
-    if j.model_consistent == "no":
-        return Verdict.NO_MATCH
-    if j.visual_match == "strong" and j.same_brand != "no":
-        return Verdict.LIKELY
-    if j.visual_match == "weak" or j.same_brand == "no":
-        return Verdict.NO_MATCH
-    return Verdict.UNSURE
-
-
-def overall(verdicts: list[Verdict]) -> Verdict:
-    return max(verdicts, key=lambda v: v.severity, default=Verdict.NO_MATCH)
+    coded = [i for i, e in enumerate(exact) if has_code(e)]
+    i = choice.index
+    if i is not None and i in coded:
+        return Verdict.CONFIRMED, i
+    if coded and i is None:
+        return Verdict.UNSURE, coded[0]  # the label says recalled, the photo comparison disagrees
+    if i is None:
+        return Verdict.NO_MATCH, None
+    if choice.model_consistent == "no":
+        return Verdict.NO_MATCH, None
+    if coded:
+        return Verdict.UNSURE, coded[0]  # code points at one recall, the photo at another
+    if choice.confidence == "high" and choice.same_brand != "no":
+        return Verdict.LIKELY, i
+    return Verdict.UNSURE, i

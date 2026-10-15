@@ -1,4 +1,4 @@
-"""Gemma 4 vision verifier: compare the user's photo with a candidate recall's photo and text."""
+"""Gemma 4 vision verifier: the seller's photo next to every candidate recall photo, forced choice."""
 
 from __future__ import annotations
 
@@ -10,37 +10,6 @@ from PIL import Image
 
 from index.models import load_image
 from read.gemma import ItemRead, OllamaVision
-from verify.verdict import Judgment
-
-VERIFY_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "same_product_type": {"type": "boolean"},
-        "same_brand": {"type": "string", "enum": ["yes", "no", "cannot_tell"]},
-        "model_consistent": {"type": "string", "enum": ["yes", "no", "cannot_tell"]},
-        "visual_match": {"type": "string", "enum": ["strong", "partial", "weak"]},
-        "reason": {"type": "string"},
-    },
-    "required": ["same_product_type", "same_brand", "model_consistent", "visual_match", "reason"],
-}
-
-VERIFY_PROMPT = """You are checking whether a secondhand item matches a product recall.
-Image 1 is the seller's photo of their item. Image 2 is the official recall photo.
-
-Recall: {title}
-Recalled products: {products}
-Recalled model numbers: {models}
-What was read from the seller's photo: {read}
-
-Answer strictly:
-- same_product_type: is the seller's item the same kind of product as the recalled one (e.g. both strollers)?
-- same_brand: does a brand visible on the seller's item match the recalling brand? "cannot_tell" if no brand is visible.
-- model_consistent: if a model number is legible on the seller's item, is it one of the recalled model numbers?
-  "cannot_tell" if no model number is legible. Never guess.
-- visual_match: "strong" only if shape, design details and colourway look like the same product line;
-  "partial" if similar but not clearly the same design; "weak" if they look different.
-- reason: one short sentence.
-Respond with JSON only."""
 
 
 def recall_context(conn: sqlite3.Connection, recall_id: int) -> dict[str, Any]:
@@ -61,19 +30,45 @@ def recall_context(conn: sqlite3.Connection, recall_id: int) -> dict[str, Any]:
     }
 
 
-def judge(
-    vision: OllamaVision, photo: Image.Image, recall_image: str | Image.Image, ctx: dict[str, Any],
+CHOOSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "match": {"type": "string", "enum": ["none", "1", "2", "3", "4", "5"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "same_brand": {"type": "string", "enum": ["yes", "no", "cannot_tell"]},
+        "model_consistent": {"type": "string", "enum": ["yes", "no", "cannot_tell"]},
+        "reason": {"type": "string"},
+    },
+    "required": ["match", "confidence", "same_brand", "model_consistent", "reason"],
+}
+
+CHOOSE_PROMPT = """You are checking whether a secondhand item is a recalled product.
+Image 1 is the seller's photo of their item. The next images are official recall photos:
+{listing}
+What was read from the seller's photo: {read}
+
+Which recall photo shows the SAME product design as the seller's item (same shape, construction and
+distinctive details; recalls usually cover several colours and patterns, so ignore colour and print)?
+Several may be the same kind of product; pick one only if it is the same design, otherwise "none".
+- match: the number of the matching recall photo (2 = first recall photo), or "none".
+- confidence: "high" only if distinctive details clearly line up; "medium" if likely; "low" if unsure.
+- same_brand / model_consistent: for the chosen recall, as visible on the seller's item ("cannot_tell" if not visible).
+- reason: one short sentence.
+Respond with JSON only."""
+
+
+def choose(
+    vision: OllamaVision, photo: Image.Image, candidates: list[tuple[str | Image.Image, dict[str, Any]]],
     item: ItemRead | None,
-) -> Judgment:
-    prompt = VERIFY_PROMPT.format(
-        title=ctx["title"], products=ctx["products"], models=ctx["models"],
-        read=json.dumps(item.to_dict() if item else {}),
+) -> dict[str, Any]:
+    """Forced choice among the candidates. Returns the parsed answer with 'index' (0-based) or None."""
+    listing = "\n".join(
+        f"- Image {i + 2}: {ctx['title']} (models: {ctx['models'][:120]})" for i, (_, ctx) in enumerate(candidates)
     )
-    d = vision.chat_json(prompt, [photo, load_image(recall_image)], VERIFY_SCHEMA)
-    return Judgment(
-        same_product_type=bool(d.get("same_product_type")),
-        same_brand=d.get("same_brand", "cannot_tell"),
-        model_consistent=d.get("model_consistent", "cannot_tell"),
-        visual_match=d.get("visual_match", "weak"),
-        reason=d.get("reason", ""),
-    )
+    prompt = CHOOSE_PROMPT.format(listing=listing, read=json.dumps(item.to_dict() if item else {}))
+    d = vision.chat_json(prompt, [photo] + [load_image(img) for img, _ in candidates], CHOOSE_SCHEMA)
+    m = d.get("match", "none")
+    idx = int(m) - 2 if m.isdigit() and 2 <= int(m) <= len(candidates) + 1 else None
+    if m.isdigit() and int(m) == 1:
+        idx = None  # pointed at the seller's own photo
+    return {**d, "index": idx}

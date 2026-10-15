@@ -11,7 +11,7 @@ from functools import lru_cache
 import numpy as np
 from PIL import Image
 
-from index.build import VectorStore, image_store_path, text_store_path
+from index.build import VectorStore, classify_kinds, image_store_path, text_store_path
 from index.models import image_embedder, load_image, text_embedder
 from ingest.categories import OUT_OF_SCOPE
 from ingest.cpsc import DB_PATH, connect
@@ -20,6 +20,14 @@ from retrieve.exact import lookup_brand, lookup_models, lookup_upcs, model_candi
 from retrieve.fusion import Candidate, boost_exact, rrf
 
 LIST_DEPTH = 50
+# RRF weight per signal, chosen by what the photo shows. Tuned on the dev split (eval/tune.py), never on the
+# test set: on product photos any weight on the text signal lowered top-3 (Gemma's description of an
+# unbranded item is too generic), so text only votes when the photo is mostly a label or packaging,
+# where the words are the evidence and the shape is not.
+FUSION_WEIGHTS: dict[str, dict[str, float]] = {
+    "product": {"image": 1.0, "text": 0.0, "brand": 0.5},
+    "label": {"image": 1.0, "text": 1.0, "brand": 0.5},
+}
 
 # Which signals to use. The eval ablation toggles these.
 MODES = {
@@ -34,6 +42,7 @@ class RetrievalResult:
     candidates: list[Candidate]
     read: ItemRead | None = None
     lists: dict[str, list[int]] = field(default_factory=dict)
+    query_kind: str = "product"
 
 
 @lru_cache(maxsize=1)
@@ -58,6 +67,7 @@ def retrieve(
     read: ItemRead | None = None,
     vision: OllamaVision | None = None,
     db_path: str = str(DB_PATH),
+    weights: dict[str, float] | None = None,
 ) -> RetrievalResult:
     """Return the top-k recall candidates for a photo.
 
@@ -71,13 +81,18 @@ def retrieve(
     excl = list(exclude_keys)
     lists: dict[str, list[int]] = {}
     best_image: dict[int, str] = {}
+    image_score: dict[int, float] = {}
+
+    query_kind = {"kind": "product"}
 
     def image_list() -> list[int]:
         v = image_embedder().embed([img])[0]
+        query_kind["kind"] = str(classify_kinds(v)[0])
         mask = ~np.isin(img_store.keys, excl) if excl else None
         hits = [h for h in img_store.search(v, k=LIST_DEPTH + len(skip), mask=mask) if h[0] not in skip]
-        for rid, _, key in hits:
+        for rid, score, key in hits:
             best_image.setdefault(rid, key)
+            image_score.setdefault(rid, score)
         return [rid for rid, _, _ in hits][:LIST_DEPTH]
 
     def do_read() -> ItemRead | None:
@@ -115,10 +130,15 @@ def retrieve(
                 for rid in brand_ids:
                     exact.setdefault(rid, []).append("brand")
 
-    fused = rrf(lists, weights={"brand": 0.5})
+    if weights is None:
+        weights = FUSION_WEIGHTS["product" if query_kind["kind"] == "product" else "label"]
+        if "image" not in use:  # text-only ablation: the text signal is all there is
+            weights = FUSION_WEIGHTS["label"]
+    fused = rrf(lists, weights=weights)
     fused = boost_exact(fused, {r: w for r, w in exact.items() if any(x != "brand" for x in w)})
     for c in fused:
         c.best_image = best_image.get(c.recall_id)
+        c.image_score = image_score.get(c.recall_id)
         if c.recall_id in exact and "brand" in exact[c.recall_id] and "brand" not in c.exact:
             c.exact.append("brand")
-    return RetrievalResult(candidates=fused[:k], read=item, lists=lists)
+    return RetrievalResult(candidates=fused[:k], read=item, lists=lists, query_kind=query_kind["kind"])

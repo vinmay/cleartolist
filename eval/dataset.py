@@ -92,7 +92,9 @@ def leakage_exclusions(store: VectorStore, held: str, hashes: dict[str, str]) ->
     return sorted(near | same | {held})
 
 
-def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40) -> list[dict]:
+def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40, out: str = "queries.json",
+          avoid: set[int] | None = None, negatives: bool = True, label_queries: int = 40) -> list[dict]:
+    avoid = avoid or set()
     conn = connect(DB_PATH)
     store = VectorStore.load(image_store_path())
     kind = dict(zip((str(k) for k in store.keys), image_kinds(store), strict=True))
@@ -107,7 +109,7 @@ def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40) -
     rng = random.Random(seed)
     pools: dict[str, list[int]] = defaultdict(list)
     for rid, ps in by_recall.items():
-        if run_of(cats.get(rid, "")) and len({hashes[p] for p in ps}) >= 2:
+        if rid not in avoid and run_of(cats.get(rid, "")) and len({hashes[p] for p in ps}) >= 2:
             pools[cats[rid]].append(rid)
 
     (WORK / "pos").mkdir(parents=True, exist_ok=True)
@@ -128,19 +130,42 @@ def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40) -
             excl = leakage_exclusions(store, held, hashes)
             if not [p for p in products if p not in set(excl)]:
                 continue  # no other distinct product photo of this recall to match against
-            out = WORK / "pos" / f"{rid}.jpg"
-            degrade(load_image(held), rng).save(out, quality=90)
-            queries.append({"path": str(out), "label": "pos", "recall_id": rid, "category": cat,
+            qpath = WORK / "pos" / f"{rid}.jpg"
+            degrade(load_image(held), rng).save(qpath, quality=90)
+            queries.append({"path": str(qpath), "label": "pos", "recall_id": rid, "category": cat,
                             "run": run_of(cat), "held_out": held, "exclude": excl, "source": "cpsc_holdout"})
             taken += 1
 
-    if NEG_MANIFEST.exists():
+    # Label run: the follow-up "photograph the label" step. Query = a held-out label/tag close-up of a
+    # children's product; nothing but the words on it can identify the recall.
+    if label_queries:
+        label_pool = sorted(rid for cat in pools if run_of(cat) == "children" for rid in pools[cat]
+                            if rid not in {q["recall_id"] for q in queries})
+        rng.shuffle(label_pool)
+        taken = 0
+        for rid in label_pool:
+            if taken >= label_queries:
+                break
+            labels = [p for p in by_recall[rid] if kind[p] == "label"]
+            if not labels:
+                continue
+            held = labels[0]
+            excl = leakage_exclusions(store, held, hashes)
+            if not [p for p in by_recall[rid] if p not in set(excl)]:
+                continue
+            qpath = WORK / "pos" / f"{rid}_label.jpg"
+            degrade(load_image(held), rng).save(qpath, quality=90)
+            queries.append({"path": str(qpath), "label": "pos", "recall_id": rid, "category": cats[rid],
+                            "run": "label", "held_out": held, "exclude": excl, "source": "cpsc_holdout_label"})
+            taken += 1
+
+    if negatives and NEG_MANIFEST.exists():
         for item in json.loads(NEG_MANIFEST.read_text())["items"]:
             p = NEG_DIR / item["file"]
             if p.exists() and run_of(item["category"]):
                 queries.append({"path": str(p), "label": "neg", "recall_id": None, "category": item["category"],
                                 "run": run_of(item["category"]), "exclude": [], "source": "commons"})
-    for p in sorted(OWNER_DIR.glob("*")) if OWNER_DIR.exists() else []:
+    for p in sorted(OWNER_DIR.glob("*")) if negatives and OWNER_DIR.exists() else []:
         if p.suffix.lower() not in {".jpg", ".jpeg", ".png", ".webp"}:
             continue
         head = p.stem.split("_")[0]
@@ -149,7 +174,7 @@ def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40) -
         queries.append({"path": str(p), "label": "pos" if rid else "neg", "recall_id": rid, "category": cat,
                         "run": "owner", "exclude": [], "source": "owner"})
     WORK.mkdir(parents=True, exist_ok=True)
-    (WORK / "queries.json").write_text(json.dumps(queries, indent=1))
+    (WORK / out).write_text(json.dumps(queries, indent=1))
     return queries
 
 
@@ -158,9 +183,15 @@ if __name__ == "__main__":
     ap.add_argument("--per-category", type=int, default=20)
     ap.add_argument("--per-child-category", type=int, default=40)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--dev", action="store_true",
+                    help="build a small tuning split (dev_queries.json) from recalls not in the test set")
     a = ap.parse_args()
-    q = build(a.per_category, a.seed, a.per_child_category)
-    for run in ("children", "mixed", "owner"):
+    if a.dev:
+        test_ids = {x["recall_id"] for x in json.loads((WORK / "queries.json").read_text()) if x["recall_id"]}
+        q = build(3, 1234, 4, out="dev_queries.json", avoid=test_ids, negatives=False, label_queries=8)
+    else:
+        q = build(a.per_category, a.seed, a.per_child_category)
+    for run in ("children", "mixed", "label", "owner"):
         pos = sum(x["label"] == "pos" and x["run"] == run for x in q)
         neg = sum(x["label"] == "neg" and x["run"] == run for x in q)
         print(f"{run}: {pos} positives, {neg} negatives")
