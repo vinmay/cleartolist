@@ -7,7 +7,7 @@ Resellers buy unboxed, unbranded secondhand items with no SKU, so catalog-based 
 | Verdict | Meaning |
 |---|---|
 | 🟥 **CONFIRMED** | A model number or UPC read from the photo matches a recalled product. Don't list it. |
-| 🟧 **LIKELY** | Strong visual and text match, but no model number was readable. Photograph the label and scan again. |
+| 🟧 **LIKELY** | Gemma judged it the same design as a recalled product with high confidence, but no model number was readable. Photograph the label and scan again. |
 | ⬜ **UNSURE** | Weak or conflicting evidence. Shown as a lead to check, never as a match. |
 | 🟩 **NO MATCH FOUND** | No match in CPSC recalls. That does **not** mean the item is safe. |
 
@@ -41,16 +41,16 @@ flowchart LR
     T --> F
     B --> F
     E -->|boost to top| F
-    F --> C[Top 5 candidates]
-    C --> V[Gemma 4 verifier<br/>your photo vs recall photo<br/>+ recall text]
+    F --> C[Top 3 candidates]
+    C --> V[Gemma 4 verifier<br/>your photo next to all 3<br/>recall photos: which one<br/>is the same design, if any?]
     V --> D[CONFIRMED / LIKELY /<br/>UNSURE / NO MATCH FOUND]
 ```
 
 1. **Ingest** (`ingest/`): pulls every recall since 2015 from the CPSC Recalls API (`saferproducts.gov`), normalizes model numbers, UPCs and manufacturers, tags a product category, and downloads recall photos. It's incremental (by `LastPublishDate`), retries with backoff when throttled, spaces requests, and falls back to a cached snapshot if the API is down.
 2. **Index** (`index/`): SigLIP 2 image vectors over all recall photos, EmbeddingGemma text vectors over title + products + manufacturer + description, and exact-match tables. At this size, a brute-force dot product takes about a millisecond, so there's no vector database.
 3. **Read** (`read/`): Gemma 4 through Ollama with a JSON-schema-constrained response.
-4. **Retrieve** (`retrieve/`): image kNN and the Gemma read run in parallel. Results are fused with reciprocal rank fusion, and exact model/UPC hits go to the top.
-5. **Verify** (`verify/`): Gemma 4 sees your photo next to each candidate's recall photo and text, and answers structured questions (same product type? same brand? model number consistent?). A small, unit-tested function maps the answers to a verdict.
+4. **Retrieve** (`retrieve/`): image kNN and the Gemma read run in parallel. Results are fused with weighted reciprocal rank fusion, and exact model/UPC hits go to the top. Product photos are ranked by image similarity (plus brand); when the photo is mostly a label and Gemma read words off it, text search leads instead.
+5. **Verify** (`verify/`): Gemma 4 sees your photo next to the top 3 recall photos (with their titles and model numbers) and makes one forced choice: which is the same product design, if any, with a confidence and whether the visible brand and model number agree. A small, unit-tested function combines that with exact code hits to give the verdict; the model never states the verdict itself.
 6. **App** (`app/`): local web UI with single scan (verdict banner, side-by-side photos, hazard, remedy, CPSC link, and a "photograph the label" step) and batch check (a folder of photos becomes a CSV of items to pull).
 
 ## Quick start
