@@ -35,7 +35,8 @@ READ_SCHEMA: dict[str, Any] = {
 READ_PROMPT = """You are helping a secondhand reseller identify an item before listing it.
 Look at the photo and describe the product. For "category" name the specific kind of item (for example
 "high chair", "bassinet", "baby lounger", "sleep sack", "stroller", "toy car", "dresser", "space heater"),
-never a broad department such as "toys", "electronics" or "baby products". Only report brand, model number and UPC if you can actually
+never a broad department such as "toys", "electronics" or "baby products".
+Only report brand, model number and UPC if you can actually
 read them or the brand is unmistakable; never invent them. If not visible, leave the field as "" (nothing).
 Respond with JSON only."""
 
