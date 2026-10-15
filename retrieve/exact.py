@@ -72,3 +72,14 @@ def lookup_brand(db_path: str, brand: str, limit: int = 200) -> list[int]:
         return []
     rx = re.compile(rf"\b{re.escape(b)}\b")
     return [rid for rid, text in _brand_table(db_path) if rx.search(text)][:limit]
+
+
+def brand_conflict(db_path: str, brand: str, recall_id: int) -> bool:
+    """A brand was read off the item and the recall's manufacturer list and title don't mention it.
+
+    Used to veto a model-number match: a short code like "100D" or "4000" can appear in unrelated text on a label.
+    """
+    b = normalize_manufacturer(brand or "")
+    if len(b) < 3 or b.upper() in _NOISE or b in {"unknown", "generic", "none"}:
+        return False
+    return recall_id not in set(lookup_brand(db_path, brand, limit=1_000_000))

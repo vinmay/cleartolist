@@ -25,3 +25,12 @@ def test_text_led_label_photo_shows_the_shortlist_when_enabled():
 
 def test_empty_shortlist_is_no_match():
     assert decide([], [], text_led=True, if_text_led=True) == (Verdict.NO_MATCH, None)
+
+
+def test_code_match_vetoed_by_a_contradicting_brand():
+    assert decide([["model:100D"], []], [0.5, 0.4], image_sim=0.7, brand_conflict=[True, False]) == (
+        Verdict.NO_MATCH, None)
+    assert decide([["model:100D"], []], [0.9, 0.4], image_sim=0.7, brand_conflict=[True, False]) == (
+        Verdict.POSSIBLE, None)
+    assert decide([["model:4000"], ["model:AB1234"]], [0.5, 0.4], brand_conflict=[True, False]) == (
+        Verdict.CONFIRMED, 1)

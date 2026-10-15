@@ -22,9 +22,10 @@ from index.build import VectorStore, image_kinds, image_store_path
 from index.models import load_image
 from ingest.cpsc import DB_PATH, connect
 from read.gemma import ItemRead, OllamaVision
+from retrieve.exact import brand_conflict
 from retrieve.search import retrieve
 from verify.gemma import recall_context
-from verify.verdict import Verdict, decide
+from verify.verdict import Verdict, decide, has_code
 
 SHORTLIST_K = 3
 DISCLAIMER = ("Screening aid only, not legal advice. 'No match found' means no match in CPSC recalls, "
@@ -105,7 +106,10 @@ def scan(
             "exact": c.exact, "sources": c.sources, "score": round(c.score, 5),
             "image_score": round(c.image_score, 4) if c.image_score is not None else None,
         })
-    v, idx = decide([m["exact"] for m in matches], [m["image_score"] for m in matches], res.text_led)
+    brand = res.read.brand if res.read else ""
+    conflicts = [has_code(m["exact"]) and brand_conflict(str(DB_PATH), brand, m["recall_id"]) for m in matches]
+    v, idx = decide([m["exact"] for m in matches], [m["image_score"] for m in matches], res.text_led,
+                    brand_conflict=conflicts)
     if v == Verdict.CONFIRMED and idx:
         matches.insert(0, matches.pop(idx))  # the code-matched recall goes first
     if v == Verdict.NO_MATCH:

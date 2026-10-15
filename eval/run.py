@@ -28,10 +28,12 @@ from typing import Any
 
 from eval.dataset import NEG_DEV_MANIFEST, NEG_DIR, NEG_MANIFEST, WORK
 from index.models import load_image
+from ingest.cpsc import DB_PATH
 from read.gemma import VISION_MODEL, OllamaVision, read_item
+from retrieve.exact import brand_conflict
 from retrieve.search import retrieve
 from verify.pipeline import SHORTLIST_K
-from verify.verdict import POSSIBLE_IF_TEXT_LED, POSSIBLE_IMAGE_SIM, Verdict, decide
+from verify.verdict import POSSIBLE_IF_TEXT_LED, POSSIBLE_IMAGE_SIM, Verdict, decide, has_code
 
 ROWS = WORK / "rows.jsonl"
 OUT_MD = Path("eval/results.md")
@@ -81,7 +83,8 @@ def run_query(q: dict[str, Any], vision: OllamaVision, experiment: bool = False)
     row["shortlist"] = [{"recall_id": c.recall_id, "exact": c.exact, "image_score": c.image_score}
                         for c in res.candidates[:SHORTLIST_K]]
     v, idx = decide([c["exact"] for c in row["shortlist"]], [c["image_score"] for c in row["shortlist"]],
-                    res.text_led)
+                    res.text_led, brand_conflict=[brand_conflict(str(DB_PATH), item.brand, c["recall_id"])
+                                                  if has_code(c["exact"]) else False for c in row["shortlist"]])
     row["scan_s"] = round(time.perf_counter() - t + read_s, 2)  # what a user waits for: read + retrieve + decide
     row["verdict"] = v.value
     row["confirmed_id"] = row["shortlist"][idx]["recall_id"] if v == Verdict.CONFIRMED else None

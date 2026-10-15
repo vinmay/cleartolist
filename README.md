@@ -68,7 +68,7 @@ flowchart LR
 2. **Index** (`index/`): SigLIP 2 image vectors over all recall photos, EmbeddingGemma text vectors over recall text, and exact-match tables. At this size a brute-force dot product takes about a millisecond, so there's no vector database.
 3. **Read** (`read/`): Gemma 4 E4B through Ollama, with the response constrained to a JSON schema.
 4. **Retrieve** (`retrieve/`): image search and the Gemma read run in parallel, fused with weighted reciprocal rank fusion; exact model/UPC hits go to the top.
-5. **Decide** (`verify/verdict.py`): a small, unit-tested rule. Only a model number or UPC that matches a recall gives CONFIRMED. If the closest shortlisted recall photo is very similar (SigLIP 2 cosine ≥ 0.81, chosen on the dev split), the shortlist is shown as POSSIBLE MATCH with a request for a label photo. Otherwise NO MATCH FOUND. No model ever states the verdict.
+5. **Decide** (`verify/verdict.py`): a small, unit-tested rule. Only a model number or UPC that matches a recall gives CONFIRMED, unless a brand read off the item contradicts that recall. If the closest shortlisted recall photo is very similar (SigLIP 2 cosine ≥ 0.81, chosen on the dev split), the shortlist is shown as POSSIBLE MATCH with a request for a label photo. Otherwise NO MATCH FOUND. No model ever states the verdict.
 6. **Label step** (`verify/pipeline.py`): the label photo is read for a model number or UPC; a match confirms, and anything else keeps the item's verdict with a note on what the label showed.
 
 ## Security and privacy
@@ -112,25 +112,27 @@ All numbers are from a held-out test on a 6 GB consumer GPU. Each positive is a 
 
 ![Correct recall in the top 3: image only, text only, fused, Run 3](eval/ablation.png)
 
-**Run 3** (the current pipeline, rules frozen on dev before the test was run once):
+**Run 3** (rules frozen on dev before the test was run once; the CONFIRMED rows also show one post-test fix, below):
 
 | | Children's products (headline) | Other CPSC categories | Label close-ups (children's) |
 |---|---|---|---|
 | positives / negatives | 150 / 41 | 180 / 83 | 40 / 0 |
-| shortlist (fused top-3) contains the right recall | 67% | 64% | 60% |
+| **right recall shown to the user** (CONFIRMED, or in a POSSIBLE MATCH shortlist) | **34%** | **37%** | **15%** |
+| right recall in the top-3 shortlist, before the POSSIBLE MATCH gate | 67% | 64% | 60% |
 | image only, top-3 | 69% | 59% | 18% |
-| CONFIRMED: count, right | 0 | 4, 2 right | 2, 2 right |
-| false alarms on negatives (CONFIRMED) | 0% | 1% (1 of 83) | n/a |
+| CONFIRMED: count, right (Run 3 → with brand check) | 0 → 0 | 4, 2 right → 3, 2 right | 2, 2 right → 2, 2 right |
+| false alarms on negatives (CONFIRMED) (Run 3 → with brand check) | 0% → 0% | 1 of 83 → 0 | n/a |
 | POSSIBLE MATCH on negatives | 5% | 24% | n/a |
-| positives shown the right recall (CONFIRMED, or in a POSSIBLE MATCH shortlist) | 34% | 37% | 15% |
 | median scan time | 6.5 s | 7.2 s | 7.1 s |
 
 What this says, plainly:
 
-- **The shortlist is the useful part.** Two times in three the right recall is among the three closest, from the photo alone. The kill criterion set before building the app was about 60% top-3 on children's products; the spike passed at 71% (n=90), and the test lands at 67-69%.
-- **Similar-looking is not an alarm.** On dev, too many ordinary products looked like recalled ones, so looking similar only ever gives POSSIBLE MATCH, and only when the closest recall photo is very similar. That threshold trades recall for quiet: about a third of children's positives get the right recall shown, while 5% of children's lookalikes get a POSSIBLE MATCH prompt.
-- **The label decides.** CONFIRMED needs a model number or UPC read off the item; it fired on 0 of 41 children's lookalikes and 1 of 83 other lookalikes. Generic-looking products (cribs and sleepers: 45% image top-3; furniture: 40%) depend on that label step, and on label close-ups Gemma's reading finds the recall where image search can't (60% vs 18% top-3).
-- **What's weak:** standalone label photos rarely clear the image-similarity gate (15% shown right), which is why the label photo is read for codes in the two-photo flow rather than treated as an item photo; and CONFIRMED in the mixed run was right 2 of 4 times.
+- **From the item photo alone, a user sees the right recall about a third of the time** (34% children's, 37% other categories). The right recall is in the top-3 shortlist more often (67% and 64%), but a shortlist is only shown when the closest recall photo is very similar, so most of those never reach the user. That gate is deliberate: on dev, showing every shortlist prompted on almost every ordinary product.
+- **The label photo is what makes a verdict reliable.** CONFIRMED needs a model number or UPC read off the item that matches a recall; with the brand check it's right 4 of 5 times across all three test sets and raises no false alarm on 124 lookalikes. Generic-looking products (cribs and sleepers: 45% image top-3; furniture: 40%) depend on that label, and on label close-ups Gemma's reading finds the recall where image search can't (60% vs 18% top-3).
+- **The kill criterion** set before building the app was about 60% top-3 on children's products, from the photo alone; the spike passed at 71% (n=90) and the test lands at 67-69%. It measures whether retrieval is worth building on, not what a user sees, which is the 34% above.
+- **What's weak:** a standalone label photo rarely clears the image-similarity gate (15% shown right), which is why the two-photo flow reads the label for codes instead of treating it as an item photo.
+
+**Post-test fix, disclosed** ([details](eval/confirm_fix.md)). Run 3 had 2 wrong CONFIRMED verdicts out of 4 in the other-categories run. One was a false alarm: a camera-battery label listing compatible cameras ("EOS 100D") matched an unrelated recall's model number "100D". The other had the right model number (Intertex VP-33), but that number appears in two recalls of the same product line and the other one was picked. On the dev split, a rule that vetoes a code match when the brand read off the item contradicts the recall removed both wrong CONFIRMED verdicts there and kept all correct ones. Applied once to the saved Run 3 rows (verdict step only), it removes the battery false alarm (4 → 3 CONFIRMED, 2 right, false alarms on negatives 1 → 0). The shared-model-number case stays wrong and is disclosed; no rule for it could be validated on dev.
 
 Limits: positives are official product photos degraded to look like phone shots, not real thrift-store photos; Commons negatives aren't verified non-recalled (two were removed after an audit, see the manifest); play yards (1 positive) and high chairs (13) are too small to read anything into.
 
