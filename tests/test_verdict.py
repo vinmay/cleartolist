@@ -34,3 +34,12 @@ def test_contradicting_model_number_is_no_match():
 
 def test_no_pick_no_code_is_no_match():
     assert decide(Choice(None, "high"), [[], []]) == (Verdict.NO_MATCH, None)
+
+
+def test_no_pick_but_very_similar_photo_is_unsure():
+    assert decide(Choice(None), [[], []], top_image_score=0.85) == (Verdict.UNSURE, 0)
+    assert decide(Choice(None), [[], []], top_image_score=0.7) == (Verdict.NO_MATCH, None)
+
+
+def test_similarity_never_overrides_a_contradicting_model_number():
+    assert decide(Choice(0, "high", model_consistent="no"), [[]], top_image_score=0.95) == (Verdict.NO_MATCH, None)

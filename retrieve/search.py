@@ -26,7 +26,7 @@ LIST_DEPTH = 50
 # where the words are the evidence and the shape is not.
 FUSION_WEIGHTS: dict[str, dict[str, float]] = {
     "product": {"image": 1.0, "text": 0.0, "brand": 0.5},
-    "label": {"image": 1.0, "text": 1.0, "brand": 0.5},
+    "label": {"image": 0.25, "text": 1.0, "brand": 0.5},
 }
 
 # Which signals to use. The eval ablation toggles these.
