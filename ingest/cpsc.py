@@ -21,6 +21,8 @@ from typing import Any, Iterator
 
 import httpx
 
+from ingest.categories import categorize
+
 API = "https://www.saferproducts.gov/RestWebServices/Recall"
 DATA_DIR = Path("data")
 DB_PATH = DATA_DIR / "recalls.db"
@@ -38,7 +40,8 @@ CREATE TABLE IF NOT EXISTS recalls (
     hazards TEXT,
     remedies TEXT,
     manufacturers TEXT,
-    raw_json TEXT
+    raw_json TEXT,
+    category TEXT
 );
 CREATE TABLE IF NOT EXISTS products (
     recall_id INTEGER,
@@ -66,6 +69,9 @@ def connect(path: Path = DB_PATH) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(recalls)")}
+    if "category" not in cols:  # databases created before categories existed
+        conn.execute("ALTER TABLE recalls ADD COLUMN category TEXT")
     return conn
 
 
@@ -154,6 +160,9 @@ def normalize(rec: dict[str, Any]) -> dict[str, Any]:
         "images": [i["URL"] for i in rec.get("Images") or [] if i.get("URL")],
         "upcs": sorted(upcs),
         "models": sorted(models),
+        "category": categorize(
+            rec.get("Title") or "", [p["name"] for p in products], [p["type"] for p in products]
+        ),
         "raw": rec,
     }
 
@@ -179,11 +188,11 @@ def windows(start: date, end: date, days: int = 90) -> Iterator[tuple[date, date
 def save(conn: sqlite3.Connection, n: dict[str, Any]) -> None:
     rid = n["recall_id"]
     conn.execute(
-        "INSERT OR REPLACE INTO recalls VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO recalls VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             rid, n["recall_number"], n["recall_date"], n["last_publish_date"], n["title"],
             n["description"], n["url"], json.dumps(n["hazards"]), json.dumps(n["remedies"]),
-            json.dumps(n["manufacturers"]), json.dumps(n["raw"]),
+            json.dumps(n["manufacturers"]), json.dumps(n["raw"]), n["category"],
         ),
     )
     for table in ("products", "upcs", "model_numbers"):
@@ -255,14 +264,25 @@ def ingest(start: date, end: date, field: str = "RecallDate", images: bool = Tru
         print(f"downloaded {n} images", file=sys.stderr)
 
 
+def recategorize(conn: sqlite3.Connection) -> None:
+    """Re-run the categorizer over stored recalls (after editing the keyword rules)."""
+    for rid, raw in conn.execute("SELECT recall_id, raw_json FROM recalls").fetchall():
+        conn.execute("UPDATE recalls SET category=? WHERE recall_id=?", (normalize(json.loads(raw))["category"], rid))
+    conn.commit()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--days", type=int, help="recalls from the last N days")
     g.add_argument("--since", type=date.fromisoformat, help="recalls since this date (YYYY-MM-DD)")
     g.add_argument("--incremental", action="store_true", help="recalls published since the newest one stored")
+    g.add_argument("--recategorize", action="store_true", help="recompute categories only")
     ap.add_argument("--no-images", action="store_true")
     args = ap.parse_args()
+    if args.recategorize:
+        recategorize(connect())
+        return
     today = date.today()
     if args.incremental:
         conn = connect()
