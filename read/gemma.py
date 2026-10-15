@@ -19,12 +19,13 @@ VISION_MODEL = os.environ.get("CTL_VISION_MODEL", "gemma4:e2b")
 READ_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "category": {"type": "string", "description": "generic product type, e.g. 'infant car seat', 'space heater'"},
+        "category": {"type": "string",
+                     "description": "generic product type, e.g. 'infant car seat', 'space heater'"},
         "brand": {"type": "string", "description": "brand or manufacturer name if visible or recognizable, else ''"},
         "visible_text": {"type": "string", "description": "all legible text on the item or label"},
         "model_number": {"type": "string", "description": "model / item / style number if legible, else ''"},
         "upc": {"type": "string", "description": "UPC / barcode digits if legible, else ''"},
-        "description": {"type": "string", "description": "one sentence: shape, colours, materials, distinctive features"},
+        "description": {"type": "string", "description": "one sentence: shape, colours, materials, features"},
         "child_product": {"type": "boolean", "description": "is this a product for babies or children"},
     },
     "required": ["category", "brand", "visible_text", "model_number", "upc", "description", "child_product"],

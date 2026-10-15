@@ -10,7 +10,8 @@ def test_children_subcategories():
 
 
 def test_hazard_clause_does_not_make_it_a_childrens_product():
-    assert categorize("KICIMPRO Kitchen Faucets Recalled Due to Lead Exposure for Young Children") == "appliance_fixture"
+    title = "KICIMPRO Kitchen Faucets Recalled Due to Lead Exposure for Young Children"
+    assert categorize(title) == "appliance_fixture"
 
 
 def test_vehicles_win_over_youth():

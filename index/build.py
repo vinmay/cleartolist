@@ -20,8 +20,8 @@ from pathlib import Path
 
 import numpy as np
 
-from ingest.cpsc import DB_PATH, connect
 from index.models import DEFAULT_IMAGE_MODEL, DEFAULT_TEXT_MODEL, image_embedder, load_image, text_embedder
+from ingest.cpsc import DB_PATH, connect
 
 VEC_DIR = Path("data/vectors")
 
@@ -37,7 +37,7 @@ class VectorStore:
     keys: np.ndarray  # (N,) str — image path or recall id
 
     @classmethod
-    def load(cls, path: Path) -> "VectorStore":
+    def load(cls, path: Path) -> VectorStore:
         z = np.load(path, allow_pickle=False)
         return cls(z["vectors"].astype(np.float32), z["recall_ids"], z["keys"])
 
@@ -107,9 +107,13 @@ def build_image_index(conn: sqlite3.Connection, model: str = DEFAULT_IMAGE_MODEL
     parts_v, parts_r, parts_k = [], [], []
     if old is not None:
         sel = np.array([str(k) in keep for k in old.keys], dtype=bool)
-        parts_v.append(old.vectors[sel]); parts_r.append(old.recall_ids[sel]); parts_k.append(old.keys[sel])
+        parts_v.append(old.vectors[sel])
+        parts_r.append(old.recall_ids[sel])
+        parts_k.append(old.keys[sel])
     if vecs:
-        parts_v.append(np.concatenate(vecs)); parts_r.append(np.array(rids)); parts_k.append(np.array(keys))
+        parts_v.append(np.concatenate(vecs))
+        parts_r.append(np.array(rids))
+        parts_k.append(np.array(keys))
     store = VectorStore(np.concatenate(parts_v), np.concatenate(parts_r), np.concatenate(parts_k))
     store.save(path)
     return store
@@ -147,7 +151,8 @@ def build_text_index(conn: sqlite3.Connection, model: str = DEFAULT_TEXT_MODEL, 
     parts_v = [old.vectors] if old else []
     parts_r = [old.recall_ids] if old else []
     if vecs:
-        parts_v.append(np.concatenate(vecs)); parts_r.append(np.array(todo))
+        parts_v.append(np.concatenate(vecs))
+        parts_r.append(np.array(todo))
     r = np.concatenate(parts_r)
     store = VectorStore(np.concatenate(parts_v), r, r.astype(str))
     store.save(path)

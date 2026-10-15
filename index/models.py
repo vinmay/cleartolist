@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from functools import lru_cache
-from typing import Protocol, Sequence
+from typing import Protocol
 
 import numpy as np
 import torch
@@ -95,7 +96,7 @@ class OllamaTextEmbedder:
 
     def embed_documents(self, texts: Sequence[str], titles: Sequence[str] | None = None) -> np.ndarray:
         titles = titles or ["none"] * len(texts)
-        return self._embed([f"title: {t} | text: {x}" for t, x in zip(titles, texts)])
+        return self._embed([f"title: {t} | text: {x}" for t, x in zip(titles, texts, strict=False)])
 
     def embed_query(self, text: str) -> np.ndarray:
         return self._embed([f"task: search result | query: {text}"])[0]

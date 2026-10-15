@@ -1,0 +1,21 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Lint
+        run: uvx ruff@0.14.0 check .
+      # Core logic (normalization, categories, fusion, verdicts, API retry/cache) needs no models,
+      # so CI skips the multi-GB torch install.
+      - name: Tests
+        run: uv run --no-project --with pytest --with httpx --with numpy --with pillow pytest -q

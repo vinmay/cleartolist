@@ -14,10 +14,12 @@ import json
 import re
 import sqlite3
 import sys
+import time
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import httpx
 
@@ -170,11 +172,53 @@ def normalize(rec: dict[str, Any]) -> dict[str, Any]:
 # ---------- fetching ----------
 
 
+CACHE_DIR = DATA_DIR / "api_cache"
+CACHE_TTL_S = 24 * 3600
+REQUEST_GAP_S = 1.0  # be polite: at most one API call per second
+MAX_RETRIES = 5
+_last_request = 0.0
+
+
+def _cache_file(params: dict[str, str]) -> Path:
+    key = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+    return CACHE_DIR / f"{hashlib.sha1(key.encode()).hexdigest()[:16]}.json"
+
+
 def fetch_window(client: httpx.Client, start: date, end: date, field: str = "RecallDate") -> list[dict]:
+    """GET one date window. Responses are cached for a day; on repeated failure (API down or
+    throttling) we fall back to the last cached response for that window, however old."""
+    global _last_request
     params = {"format": "json", f"{field}Start": start.isoformat(), f"{field}End": end.isoformat()}
-    r = client.get(API, params=params, timeout=120)
-    r.raise_for_status()
-    return r.json()
+    cache = _cache_file(params)
+    if cache.exists() and time.time() - cache.stat().st_mtime < CACHE_TTL_S:
+        return json.loads(cache.read_text())
+    delay = 2.0
+    for attempt in range(MAX_RETRIES):
+        wait = REQUEST_GAP_S - (time.monotonic() - _last_request)
+        if wait > 0:
+            time.sleep(wait)
+        _last_request = time.monotonic()
+        try:
+            r = client.get(API, params=params, timeout=120)
+            if r.status_code in (429, 500, 502, 503, 504):
+                retry_after = r.headers.get("Retry-After", "")
+                time.sleep(float(retry_after) if retry_after.isdigit() else delay)
+                delay *= 2
+                continue
+            r.raise_for_status()
+            data = r.json()
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(data))
+            return data
+        except (httpx.TransportError, json.JSONDecodeError) as e:
+            print(f"  {start}..{end}: attempt {attempt + 1} failed: {e}", file=sys.stderr)
+            time.sleep(delay)
+            delay *= 2
+    if cache.exists():
+        print(f"  {start}..{end}: API unavailable, using cached snapshot from "
+              f"{datetime.fromtimestamp(cache.stat().st_mtime):%Y-%m-%d %H:%M}", file=sys.stderr)
+        return json.loads(cache.read_text())
+    raise RuntimeError(f"CPSC API unavailable for {start}..{end} and no cached snapshot")
 
 
 def windows(start: date, end: date, days: int = 90) -> Iterator[tuple[date, date]]:
@@ -215,7 +259,7 @@ def image_path(recall_id: int, url: str) -> Path:
     return IMG_DIR / str(recall_id) / f"{h}{ext}"
 
 
-def download_images(conn: sqlite3.Connection, workers: int = 8) -> int:
+def download_images(conn: sqlite3.Connection, workers: int = 4) -> int:
     rows = conn.execute("SELECT recall_id, url FROM images WHERE path IS NULL").fetchall()
     if not rows:
         return 0

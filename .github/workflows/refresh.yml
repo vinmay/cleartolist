@@ -1,0 +1,55 @@
+name: nightly-recall-refresh
+
+# Pulls new and updated CPSC recalls, rebuilds the text-only demo database,
+# publishes both as assets on the "data-latest" release, then redeploys the Render demo.
+on:
+  schedule:
+    - cron: "17 9 * * *"   # 09:17 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recall-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Restore previous recall database
+        run: |
+          mkdir -p data
+          gh release download data-latest --pattern recalls.db --dir data || echo "no previous snapshot; full ingest"
+      - name: Ingest new and updated recalls (text only)
+        run: |
+          if [ -f data/recalls.db ]; then
+            uv run --no-project --with httpx python -m ingest.cpsc --incremental --no-images
+          else
+            uv run --no-project --with httpx python -m ingest.cpsc --since 2015-01-01 --no-images
+          fi
+      - name: Build demo database
+        run: uv run --no-project python scripts/build_demo_db.py
+      - name: Publish release assets
+        run: |
+          gh release view data-latest >/dev/null 2>&1 || \
+            gh release create data-latest --title "Recall data (nightly)" \
+              --notes "Text-only CPSC recall snapshot used by the demo. Rebuilt nightly by GitHub Actions. Source: U.S. Consumer Product Safety Commission." --latest=false
+          python3 -c "import sqlite3; print(sqlite3.connect('data/recalls.db').execute('select count(*), max(recall_date) from recalls').fetchone())"
+          gh release upload data-latest data/recalls.db data/demo.db --clobber
+      - name: Redeploy Render demo
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" >/dev/null && echo "redeploy triggered"
+          else
+            echo "RENDER_DEPLOY_HOOK_URL not set; skipping redeploy"
+          fi

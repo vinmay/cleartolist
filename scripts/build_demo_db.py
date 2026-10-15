@@ -54,7 +54,8 @@ def build(src: Path, out: Path) -> int:
     keep = {r for (r,) in d.execute("SELECT recall_id FROM recalls")}
     d.executemany("INSERT INTO model_numbers VALUES (?,?)",
                   [r for r in s.execute("SELECT recall_id, model FROM model_numbers") if r[0] in keep])
-    d.executemany("INSERT INTO upcs VALUES (?,?)", [r for r in s.execute("SELECT recall_id, upc FROM upcs") if r[0] in keep])
+    d.executemany("INSERT INTO upcs VALUES (?,?)",
+                  [r for r in s.execute("SELECT recall_id, upc FROM upcs") if r[0] in keep])
     latest = s.execute("SELECT MAX(recall_date) FROM recalls").fetchone()[0]
     d.executemany("INSERT INTO meta VALUES (?,?)", [("recall_count", str(n)), ("latest_recall_date", latest or ""),
                                                    ("source", "U.S. CPSC Recalls API, saferproducts.gov")])
