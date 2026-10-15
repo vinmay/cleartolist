@@ -1,0 +1,138 @@
+[
+ {
+  "photo": "9262b6ec6f7d.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/Recall.2016.16228.16228b.jpg",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "NO MATCH FOUND",
+  "recall_title": "",
+  "recall_url": "",
+  "recall_image_url": "",
+  "evidence": "",
+  "read_summary": "necklace",
+  "seconds": 68.46,
+  "truth": {
+   "title": "Things Remembered Recalls Children's Jewelry Due to Violation of Lead Standard",
+   "url": "https://www.cpsc.gov/Recalls/2016/Things-Remembered-Recalls-Childrens-Jewelry",
+   "outcome": "missed"
+  }
+ },
+ {
+  "photo": "f12bb0743a59.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/Picture3_13.jpg",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "NO MATCH FOUND",
+  "recall_title": "",
+  "recall_url": "",
+  "recall_image_url": "",
+  "evidence": "",
+  "read_summary": "toy car",
+  "seconds": 14.18,
+  "truth": {
+   "title": "Blue Star Trading Recalls Children's Fishing Toy Games Due to Violation of Federal Lead Content Ban; Lead Poisoning Hazard; Sold Exclusively on Amazon.com (Recall Alert)",
+   "url": "https://www.cpsc.gov/Recalls/2021/Blue-Star-Trading-Recalls-Childrens-Fishing-Toy-Games-Due-to-Violation-of-Federal-Lead-Content-Ban-Lead-Poisoning-Hazard-Sold-Exclusively-on-Amazon-com-Recall-Alert",
+   "outcome": "missed"
+  }
+ },
+ {
+  "photo": "fff18ca70c0c.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/criblike-5.jpg",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "UNSURE",
+  "recall_title": "Koorlian Mattresses Recalled Due to Risk of Serious Injury or Death from Fire Hazard; Violate Mandatory Standard for Mattress Flammability; Sold on Amazon by Dream Bedding Technology",
+  "recall_url": "https://www.cpsc.gov/Recalls/2026/Koorlian-Mattresses-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Fire-Hazard-Violate-Mandatory-Standard-for-Mattress-Flammability-Sold-on-Amazon-by-Dream-Bedding-Technology",
+  "recall_image_url": "https://www.cpsc.gov/s3fs-public/koorlian-1.png",
+  "evidence": "The seller's item appears to be a flat, quilted topper (Image 1), while the recall photos show mattresses with distinct quilting patterns or are solid/unquilted.",
+  "read_summary": "mattress topper",
+  "seconds": 28.2,
+  "truth": {
+   "title": "F&F Fine Wines Recalls Kirkland Signature Valdobbiadene Prosecco Entrapment or Suffocation; Violates Mandatory Standards for Mattresses; Sold on Amazon by Mengna Criblike Mattresses Recalled Due to Risk of Serious Injury or Death from Entrapment",
+   "url": "https://www.cpsc.gov/Recalls/2026/Criblike-Mattresses-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Entrapment-or-Suffocation-Violates-Mandatory-Standards-for-Mattresses-Sold-on-Amazon-by-Mengna",
+   "outcome": "wrong recall"
+  }
+ },
+ {
+  "photo": "b4a4da865d43.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/pic1_89.png",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "LIKELY",
+  "recall_title": "Guava Family Recalls Roam Strollers Due to Fall and Injury Hazards",
+  "recall_url": "https://www.cpsc.gov/Recalls/2025/Guava-Family-Recalls-Roam-Strollers-Due-to-Fall-and-Injury-Hazards",
+  "recall_image_url": "https://www.cpsc.gov/s3fs-public/guava-stroller.png",
+  "evidence": "Gemma picked this recall (high confidence); Image 1 has a design very similar to the stroller in Image 2.",
+  "read_summary": "stroller",
+  "seconds": 13.21,
+  "truth": {
+   "title": "UPPAbaby Recalls RIDGE Jogging Strollers Due to Fingertip Amputation Hazard; One Injury to Child Reported",
+   "url": "https://www.cpsc.gov/Recalls/2022/UPPAbaby-Recalls-RIDGE-Jogging-Strollers-Due-to-Fingertip-Amputation-Hazard-One-Injury-to-Child-Reported",
+   "outcome": "wrong recall"
+  }
+ },
+ {
+  "photo": "a4115647537b.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/Chews-Life-3.png",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "LIKELY",
+  "recall_title": "Target Recalls Wooden Toy Vehicles Due to Choking Hazard",
+  "recall_url": "https://www.cpsc.gov/Recalls/2019/Target-Recalls-Wooden-Toy-Vehicles-Due-to-Choking-Hazard",
+  "recall_image_url": "https://www.cpsc.gov/s3fs-public/4_4.jpg",
+  "evidence": "Gemma picked this recall (high confidence); Image 3 shows wooden toy vehicles, which matches the material and general shape of the items in Image 1.",
+  "read_summary": "toy car",
+  "seconds": 37.54,
+  "truth": {
+   "title": "Chews Life Recalls Silicone Rosary and Decade Teethers Due to Choking Hazard",
+   "url": "https://www.cpsc.gov/Recalls/2025/Chews-Life-Recalls-Silicone-Rosary-and-Decade-Teethers-Due-to-Choking-Hazard",
+   "outcome": "wrong recall"
+  }
+ },
+ {
+  "photo": "9efc50279ef1.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/954544 Minnie Mouse wand.jpg",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "LIKELY",
+  "recall_title": "Feld Entertainment Recalls Toy Wands Due to Injury Hazard; Sold Exclusively at Disney On Ice and Disney Live Shows",
+  "recall_url": "https://www.cpsc.gov/Recalls/2017/Feld-Entertainment-Recalls-Toy-Wands-Due",
+  "recall_image_url": "https://www.cpsc.gov/s3fs-public/954603 Mickey Mouse wand.jpg",
+  "evidence": "Gemma picked this recall (high confidence); Both images show a toy wand design with a decorative top and dangling elements.",
+  "read_summary": "hair accessory",
+  "seconds": 23.12,
+  "truth": {
+   "title": "Feld Entertainment Recalls Toy Wands Due to Injury Hazard; Sold Exclusively at Disney On Ice and Disney Live Shows",
+   "url": "https://www.cpsc.gov/Recalls/2017/Feld-Entertainment-Recalls-Toy-Wands-Due",
+   "outcome": "right recall flagged"
+  }
+ },
+ {
+  "photo": "935136c066c6.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/3-102845AM.png",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "LIKELY",
+  "recall_title": "Graco Recalls Little Lounger Rocking Seats to Prevent Risk of Suffocation",
+  "recall_url": "https://www.cpsc.gov/Recalls/2020/Graco-Recalls-Little-Lounger-Rocking-Seats-to-Prevent-Risk-of-Suffocation",
+  "recall_image_url": "https://www.cpsc.gov/s3fs-public/3_21.jpg",
+  "evidence": "Gemma picked this recall (high confidence); Image 4 shows a rocking seat design that closely matches the shape and construction of the bassinet in Image 1.",
+  "read_summary": "bassinet",
+  "seconds": 21.35,
+  "truth": {
+   "title": "Graco Recalls Inclined Sleeper Accessory Included with Four Models of Playards to Prevent Risk of Suffocation",
+   "url": "https://www.cpsc.gov/Recalls/2021/Graco-Recalls-Inclined-Sleeper-Accessory-Included-with-Four-Models-of-Playards-to-Prevent-Risk-of-Suffocation",
+   "outcome": "wrong recall"
+  }
+ },
+ {
+  "photo": "91b6893b5bc3.jpg",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/bearlala-2.png",
+  "photo_source": "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
+  "verdict": "UNSURE",
+  "recall_title": "URMYWO Baby Loungers Recalled Due to Risk of Serious Injury or Death from Suffocation and Fall Hazard; Violates Mandatory Standard for Infant Sleep Products; Sold on Amazon by Pomona",
+  "recall_url": "https://www.cpsc.gov/Recalls/2025/URMYWO-Baby-Loungers-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Suffocation-and-Fall-Hazard-Violates-Mandatory-Standard-for-Infant-Sleep-Products-Sold-on-Amazon-by-Pomona",
+  "recall_image_url": "https://www.cpsc.gov/s3fs-public/blounger-1.png",
+  "evidence": "The seller's item is a flat blanket, while the recall items are structured baby loungers.",
+  "read_summary": "blanket",
+  "seconds": 22.8,
+  "truth": {
+   "title": "Bearlala Baby Loungers Recalled Due to Risk of Serious Injury or Death from Entrapment and Fall Hazards; Violates Mandatory Standard for Infant Sleep Products; Sold on Walmart.com by Nuoxuann",
+   "url": "https://www.cpsc.gov/Recalls/2026/Bearlala-Baby-Loungers-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Entrapment-and-Fall-Hazards-Violates-Mandatory-Standard-for-Infant-Sleep-Products-Sold-on-Walmart-com-by-Nuoxuann",
+   "outcome": "wrong recall"
+  }
+ }
+]

@@ -2,7 +2,7 @@
 
 Results go into the app's scan cache (keyed by the photo's SHA-256). The app marks them as cached.
 
-    uv run python scripts/demo_prepare.py demo/photos/*.jpg
+    uv run python -m scripts.demo_prepare demo/photos/*.jpg
 """
 
 from __future__ import annotations

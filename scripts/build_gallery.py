@@ -1,7 +1,7 @@
 """Build the Render demo's gallery from scans run locally with the full pipeline.
 
-    uv run python scripts/build_gallery.py --source "Owner photo" demo/photos/*.jpg
-    uv run python scripts/build_gallery.py --from-eval 8      # simulated photos from the eval set
+    uv run python -m scripts.build_gallery --source "Owner photo" demo/photos/*.jpg
+    uv run python -m scripts.build_gallery --from-eval 8      # simulated photos from the eval set
 
 Copies each scanned photo (downscaled) into demo/gallery/ and appends an entry to demo/gallery/gallery.json.
 The recall photo is linked from cpsc.gov, not copied. Eval-derived entries are labeled as simulated.
@@ -31,7 +31,10 @@ def remote_url(conn: sqlite3.Connection, local_path: str | None) -> str | None:
     return row[0] if row else None
 
 
-def add(photo: str, source: str, exclude: list[str] | None = None, held_out: str | None = None) -> dict:
+def add(
+    photo: str, source: str, exclude: list[str] | None = None, held_out: str | None = None,
+    truth: int | None = None,
+) -> dict:
     """Scan one photo. Owner photos are copied (downscaled) into the gallery; for eval-derived scans the
     gallery links the original held-out CPSC photo on cpsc.gov instead of redistributing a copy."""
     conn = sqlite3.connect(DB_PATH)
@@ -65,6 +68,12 @@ def add(photo: str, source: str, exclude: list[str] | None = None, held_out: str
         "read_summary": ", ".join(x for x in [read.get("category"), read.get("brand"), read.get("model_number")] if x),
         "seconds": r["timings"]["total_s"],
     }
+    if truth is not None:  # eval photo: say which recall it really came from and whether the scan got it
+        title, url = conn.execute("SELECT title, url FROM recalls WHERE recall_id=?", (truth,)).fetchone()
+        right = flagged and top is not None and top["recall_id"] == truth
+        entry["truth"] = {"title": title, "url": url,
+                          "outcome": "right recall flagged" if right else ("wrong recall" if flagged else "missed")}
+    GALLERY.mkdir(parents=True, exist_ok=True)
     items = json.loads(INDEX.read_text()) if INDEX.exists() else []
     items = [i for i in items if i["photo"] != name] + [entry]
     INDEX.write_text(json.dumps(items, indent=1))
@@ -86,7 +95,7 @@ def main() -> None:
         for q in random.Random(3).sample(qs, a.from_eval):
             add(q["path"], "Simulated: a held-out CPSC recall photo (shown) was cropped, rotated, dimmed and "
                 "blurred, then scanned with that photo hidden from the index. Not a real thrift photo.",
-                q["exclude"], q["held_out"])
+                q["exclude"], q["held_out"], q["recall_id"])
 
 
 if __name__ == "__main__":

@@ -42,7 +42,9 @@ label.chk { display: flex; align-items: center; gap: 6px; color: var(--muted); f
 .scan .pair { display: grid; grid-template-columns: 1fr 1fr; }
 .scan .pair img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); }
 .scan .body { padding: 12px; font-size: 14px; }
+.scan .none { display: grid; place-items: center; background: var(--grey-bg); color: var(--muted); font-size: 14px; aspect-ratio: 1; }
 .v { font-weight: 700; padding: 6px 12px; }
+.truth { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .v-CONFIRMED { background: var(--red-bg); color: var(--red); }
 .v-LIKELY { background: var(--amber-bg); color: var(--amber); }
 .v-UNSURE { background: var(--grey-bg); color: var(--grey); }
@@ -71,7 +73,7 @@ a { color: var(--accent); }
   </div>
 
   <h2>Scans run locally</h2>
-  <p class="meta" id="galleryNote">Each card shows the photo that was scanned, the closest CPSC recall photo, and the verdict from the full local pipeline.</p>
+  <p class="meta" id="galleryNote">Each card shows the photo that was scanned, the closest CPSC recall photo, and the verdict from the full local pipeline. These are a random sample, misses included. Across the full held-out test of 150 children's-product photos, the right recall was in the top 3 matches 67% of the time, and the verifier flagged the right recall for 21% (details in the <a href="https://github.com/vinmay/cleartolist#evaluation">evaluation</a>).</p>
   <div class="grid" id="gallery"></div>
 </main>
 <footer>
@@ -106,11 +108,12 @@ fetch("/api/gallery").then((r) => r.json()).then((items) => {
   if (!items.length) { $("#gallery").innerHTML = `<p class="meta">No scans published yet.</p>`; return; }
   $("#gallery").innerHTML = items.map((s) => `<div class="scan">
     <div class="v ${cls(s.verdict)}">${esc(s.verdict)}</div>
-    <div class="pair"><img src="${esc(s.photo_url)}" alt="Scanned photo" loading="lazy"><img src="${esc(s.recall_image_url || "")}" alt="Recall photo" loading="lazy"></div>
+    <div class="pair"><img src="${esc(s.photo_url)}" alt="Scanned photo">${s.recall_image_url ? `<img src="${esc(s.recall_image_url)}" alt="Closest recall photo">` : `<div class="none">No recall matched</div>`}</div>
     <div class="body"><div class="meta">${esc(s.photo_source)}</div>
     ${s.recall_url ? `<a href="${esc(s.recall_url)}" target="_blank" rel="noopener">${esc(s.recall_title)}</a>` : ""}
     <div class="meta">${esc(s.evidence || "")}</div>
-    <div class="meta">Gemma read: ${esc(s.read_summary || "")}</div></div></div>`).join("");
+    <div class="meta">Gemma read: ${esc(s.read_summary || "")}</div>
+    ${s.truth ? `<div class="truth">Photo actually from: <a href="${esc(s.truth.url)}" target="_blank" rel="noopener">${esc(s.truth.title)}</a>. Result: <strong>${esc(s.truth.outcome)}</strong>.</div>` : ""}</div></div>`).join("");
 });
 fetch("/api/meta").then((r) => r.json()).then((m) => {
   if (m.recall_count) $("#meta").textContent = `Recall data: U.S. Consumer Product Safety Commission (saferproducts.gov API). ${m.recall_count} recalls, newest ${m.latest_recall_date}. Refreshed nightly. Not affiliated with or endorsed by CPSC.`;
