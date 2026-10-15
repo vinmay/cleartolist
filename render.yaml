@@ -1,0 +1,18 @@
+# Render Blueprint for the lightweight public demo. No vision models run here.
+# Recall data comes from the nightly "data-latest" GitHub release asset (see .github/workflows/refresh.yml).
+services:
+  - type: web
+    name: cleartolist-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r demo/requirements.txt
+    startCommand: uvicorn demo.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: CTL_DEMO_DB
+        value: /tmp/demo.db
+      - key: CTL_DEMO_DB_URL
+        value: https://github.com/vinmay/cleartolist/releases/download/data-latest/demo.db

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClearToList demo</title>
+<meta name="description" content="Check secondhand children's products against U.S. CPSC recalls before you list them.">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e2e0da;
+  --red: #b42318; --red-bg: #fde8e6; --amber: #a15c07; --amber-bg: #fef3dc;
+  --grey: #4a4a48; --grey-bg: #ecebe7; --green: #1f6f43; --green-bg: #e3f4e9; --accent: #1d4ed8;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecebe7; --muted: #a3a29d; --line: #34332f;
+    --red: #ff8a80; --red-bg: #3a1714; --amber: #ffc069; --amber-bg: #3a2a0f; --grey: #c9c8c3;
+    --grey-bg: #2a2a28; --green: #7fd8a4; --green-bg: #12301f; --accent: #8ab4ff; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header, main, footer { max-width: 980px; margin: 0 auto; padding: 16px; }
+h1 { margin: 8px 0 0; font-size: 30px; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 32px 0 8px; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 680px; }
+.note { background: var(--amber-bg); color: var(--amber); border-radius: 10px; padding: 10px 14px; margin-top: 16px; font-size: 15px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 12px; }
+form { display: flex; gap: 8px; flex-wrap: wrap; }
+input[type=search] { flex: 1 1 260px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: var(--bg); color: var(--ink); }
+button { background: var(--ink); color: var(--bg); border: 0; padding: 10px 18px; border-radius: 8px; font: inherit; cursor: pointer; }
+label.chk { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; }
+.examples { margin-top: 8px; font-size: 14px; color: var(--muted); }
+.examples a { margin-right: 10px; }
+.result { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.result img { width: 96px; height: 96px; object-fit: contain; background: var(--grey-bg); border-radius: 8px; }
+.result h3 { margin: 0; font-size: 16px; }
+.meta { color: var(--muted); font-size: 14px; }
+.tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--grey-bg); margin-right: 4px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.scan { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.scan .pair { display: grid; grid-template-columns: 1fr 1fr; }
+.scan .pair img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); }
+.scan .body { padding: 12px; font-size: 14px; }
+.v { font-weight: 700; padding: 6px 12px; }
+.v-CONFIRMED { background: var(--red-bg); color: var(--red); }
+.v-LIKELY { background: var(--amber-bg); color: var(--amber); }
+.v-UNSURE { background: var(--grey-bg); color: var(--grey); }
+.v-NOMATCH { background: var(--green-bg); color: var(--green); }
+footer { color: var(--muted); font-size: 14px; }
+a { color: var(--accent); }
+@media (max-width: 520px) { .result { grid-template-columns: 64px 1fr; } .result img { width: 64px; height: 64px; } h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>ClearToList</h1>
+  <p class="lede">For resellers: photograph your thrift haul at home, then check each item against U.S. CPSC recalls on your own computer before you list it. Built for children's products first: cribs, strollers, high chairs, bassinets, sleepers, play yards and toys.</p>
+  <p class="note"><strong>This is the lightweight online demo.</strong> Full photo scanning (Gemma 4 vision + SigLIP 2) runs locally on your own computer; this page does not run any vision models. Here you can look up recalls by model number, UPC, brand or name, and browse scans that were run locally. <a href="https://github.com/vinmay/cleartolist">Get the local app.</a></p>
+</header>
+<main>
+  <h2>Look up a recall</h2>
+  <div class="panel">
+    <form id="f">
+      <input type="search" id="q" placeholder="Model number, UPC, brand or product (e.g. 'inclined sleeper')" required minlength="2" maxlength="120" aria-label="Search recalls">
+      <button>Search</button>
+      <label class="chk"><input type="checkbox" id="kids" checked> Children's products only</label>
+    </form>
+    <div class="examples">Try: <a href="#" data-q="inclined sleeper">inclined sleeper</a><a href="#" data-q="high chair">high chair</a><a href="#" data-q="bassinet">bassinet</a><a href="#" data-q="play yard mattress">play yard mattress</a></div>
+    <div id="out"></div>
+  </div>
+
+  <h2>Scans run locally</h2>
+  <p class="meta" id="galleryNote">Each card shows the photo that was scanned, the closest CPSC recall photo, and the verdict from the full local pipeline.</p>
+  <div class="grid" id="gallery"></div>
+</main>
+<footer>
+  <p><strong>Screening aid only, not legal advice.</strong> "No match" means no match in CPSC recalls, not that the item is safe. Always confirm at <a href="https://www.cpsc.gov/Recalls">cpsc.gov</a>. Car seats are regulated by NHTSA and not covered: check <a href="https://www.nhtsa.gov/recalls">nhtsa.gov/recalls</a>.</p>
+  <p id="meta">Recall data: U.S. Consumer Product Safety Commission (saferproducts.gov API), refreshed nightly. Not affiliated with or endorsed by CPSC.</p>
+  <p>Free hosting: the first request after a quiet period can take up to a minute while the server wakes up.</p>
+</footer>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cls = (v) => "v-" + (v === "NO MATCH FOUND" ? "NOMATCH" : v);
+
+async function search(q) {
+  $("#out").innerHTML = `<p class="meta">Searching... (the free server may need a moment to wake up)</p>`;
+  try {
+    const r = await fetch(`/api/lookup?q=${encodeURIComponent(q)}&children=${$("#kids").checked}`);
+    if (!r.ok) throw new Error(r.statusText);
+    const d = await r.json();
+    if (!d.results.length) { $("#out").innerHTML = `<p class="meta">No recalls found for "${esc(q)}". That does not mean the item is safe; try the brand alone, or check cpsc.gov.</p>`; return; }
+    $("#out").innerHTML = d.results.map((x) => `<div class="result">
+      ${x.image_urls[0] ? `<img src="${esc(x.image_urls[0])}" alt="" loading="lazy">` : `<div></div>`}
+      <div><h3><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></h3>
+      <div class="meta">${esc(x.date)} · ${esc(x.hazards.join("; "))}</div>
+      <div class="meta">Remedy: ${esc(x.remedies.join("; ") || "see recall")}</div>
+      <span class="tag">${esc(x.match)}</span><span class="tag">${esc(x.category.replaceAll("_", " "))}</span></div></div>`).join("");
+  } catch (e) { $("#out").innerHTML = `<p class="meta">Search failed: ${esc(e.message)}</p>`; }
+}
+$("#f").onsubmit = (e) => { e.preventDefault(); search($("#q").value); };
+document.querySelectorAll("[data-q]").forEach((a) => a.onclick = (e) => { e.preventDefault(); $("#q").value = a.dataset.q; search(a.dataset.q); });
+
+fetch("/api/gallery").then((r) => r.json()).then((items) => {
+  if (!items.length) { $("#gallery").innerHTML = `<p class="meta">No scans published yet.</p>`; return; }
+  $("#gallery").innerHTML = items.map((s) => `<div class="scan">
+    <div class="v ${cls(s.verdict)}">${esc(s.verdict)}</div>
+    <div class="pair"><img src="/gallery/${esc(s.photo)}" alt="Scanned photo" loading="lazy"><img src="${esc(s.recall_image_url || "")}" alt="Recall photo" loading="lazy"></div>
+    <div class="body"><div class="meta">${esc(s.photo_source)}</div>
+    ${s.recall_url ? `<a href="${esc(s.recall_url)}" target="_blank" rel="noopener">${esc(s.recall_title)}</a>` : ""}
+    <div class="meta">${esc(s.evidence || "")}</div>
+    <div class="meta">Gemma read: ${esc(s.read_summary || "")}</div></div></div>`).join("");
+});
+fetch("/api/meta").then((r) => r.json()).then((m) => {
+  if (m.recall_count) $("#meta").textContent = `Recall data: U.S. Consumer Product Safety Commission (saferproducts.gov API). ${m.recall_count} recalls, newest ${m.latest_recall_date}. Refreshed nightly. Not affiliated with or endorsed by CPSC.`;
+}).catch(() => {});
+</script>
+</body>
+</html>

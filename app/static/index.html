@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClearToList</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e2e0da;
+  --red: #b42318; --red-bg: #fde8e6; --amber: #a15c07; --amber-bg: #fef3dc;
+  --grey: #4a4a48; --grey-bg: #ecebe7; --green: #1f6f43; --green-bg: #e3f4e9; --accent: #1d4ed8;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecebe7; --muted: #a3a29d; --line: #34332f;
+    --red: #ff8a80; --red-bg: #3a1714; --amber: #ffc069; --amber-bg: #3a2a0f; --grey: #c9c8c3;
+    --grey-bg: #2a2a28; --green: #7fd8a4; --green-bg: #12301f; --accent: #8ab4ff; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header, main, footer { max-width: 960px; margin: 0 auto; padding: 16px; }
+header h1 { margin: 8px 0 0; font-size: 28px; letter-spacing: -0.01em; }
+header p { margin: 4px 0 0; color: var(--muted); }
+.tabs { display: flex; gap: 8px; margin-top: 16px; }
+.tabs button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 8px 16px; border-radius: 999px; cursor: pointer; font: inherit; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 16px; }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 32px 16px; text-align: center; cursor: pointer; }
+.drop.over { border-color: var(--accent); }
+.drop input { display: none; }
+.btn { display: inline-block; background: var(--ink); color: var(--bg); border: 0; padding: 10px 18px; border-radius: 8px; font: inherit; cursor: pointer; }
+.banner { border-radius: 12px; padding: 20px; margin-top: 16px; font-size: 24px; font-weight: 700; }
+.banner small { display: block; font-size: 15px; font-weight: 400; margin-top: 4px; }
+.v-CONFIRMED { background: var(--red-bg); color: var(--red); }
+.v-LIKELY { background: var(--amber-bg); color: var(--amber); }
+.v-UNSURE { background: var(--grey-bg); color: var(--grey); }
+.v-NOMATCH { background: var(--green-bg); color: var(--green); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.pair figure { margin: 0; }
+.pair img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); border-radius: 8px; }
+.pair figcaption { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.card h3 { margin: 0 0 8px; font-size: 18px; }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 15px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.chips span { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--grey-bg); margin: 2px 4px 2px 0; }
+details { margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.pill { font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.muted { color: var(--muted); }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -3px; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+footer { color: var(--muted); font-size: 14px; }
+a { color: var(--accent); }
+@media (max-width: 600px) { .pair { grid-template-columns: 1fr; } .kv { grid-template-columns: 1fr; } .banner { font-size: 20px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>ClearToList</h1>
+  <p>Photograph your haul at home, then check each item against U.S. CPSC recalls before you list it. Runs on your own computer with open models.</p>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="single">Single scan</button>
+    <button role="tab" aria-selected="false" data-tab="batch">Batch check</button>
+  </div>
+</header>
+<main>
+  <section id="single">
+    <div class="panel">
+      <label class="drop" id="drop1">
+        <input type="file" accept="image/*" id="file1">
+        <strong>Drop a photo here or click to choose</strong>
+        <div class="muted">One item per photo. A clear shot of the whole item works best; a label close-up confirms it.</div>
+      </label>
+    </div>
+    <div id="result"></div>
+  </section>
+  <section id="batch" hidden>
+    <div class="panel">
+      <label class="drop" id="drop2">
+        <input type="file" accept="image/*" multiple id="file2">
+        <strong>Drop a folder's worth of photos</strong>
+        <div class="muted">Each photo is scanned in turn. Flagged items are listed first.</div>
+      </label>
+      <div style="margin-top:12px"><button class="btn" id="csv" disabled>Download CSV report</button></div>
+    </div>
+    <div id="batchResult"></div>
+  </section>
+</main>
+<footer>
+  <p><strong>Screening aid only, not legal advice.</strong> "No match found" means no match in CPSC recalls, not that the item is safe. Always confirm at <a href="https://www.cpsc.gov/Recalls" target="_blank" rel="noopener">cpsc.gov</a>. Car seats are regulated by NHTSA and are not covered; check <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls</a>.</p>
+  <p>Recall data: U.S. Consumer Product Safety Commission. ClearToList is not affiliated with or endorsed by CPSC.</p>
+</footer>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cls = (v) => "v-" + (v === "NO MATCH FOUND" ? "NOMATCH" : v);
+const HEAD = {
+  "CONFIRMED": ["Recalled: do not list", "A model number or UPC on the item matches a CPSC recall."],
+  "LIKELY": ["Likely recalled: check the label", "Strong visual and text match, but no model number was readable. Photograph the label to confirm."],
+  "UNSURE": ["Unsure: check before listing", "Weak or conflicting evidence. Compare with the recall below and look for a model number."],
+  "NO MATCH FOUND": ["No match in CPSC recalls", "This does not mean the item is safe. Recalls without photos or unusual items can be missed."],
+};
+
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b));
+  $("#single").hidden = b.dataset.tab !== "single";
+  $("#batch").hidden = b.dataset.tab !== "batch";
+});
+
+function wireDrop(drop, input, cb) {
+  input.onchange = () => input.files.length && cb([...input.files]);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = () => drop.classList.remove("over");
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); cb([...e.dataTransfer.files]); };
+}
+
+async function post(url, files, field) {
+  const fd = new FormData();
+  files.forEach((f) => fd.append(field, f));
+  const r = await fetch(url, { method: "POST", body: fd });
+  if (!r.ok) throw new Error(await r.text());
+  return r;
+}
+
+function renderScan(r, file) {
+  const [title, sub] = HEAD[r.verdict];
+  const flagged = r.verdict !== "NO MATCH FOUND";
+  const m = r.matches[0];
+  let html = `<div class="banner ${cls(r.verdict)}">${esc(title)}<small>${esc(sub)}</small></div>`;
+  if (m && flagged) {
+    html += `<div class="panel card"><h3><a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></h3>
+      <div class="pair"><figure><img src="${URL.createObjectURL(file)}" alt="Your photo"><figcaption>Your photo</figcaption></figure>
+      <figure><img src="${esc(m.recall_image_url || "")}" alt="Recall photo"><figcaption>CPSC recall photo</figcaption></figure></div>
+      <dl class="kv" style="margin-top:12px"><dt>Hazard</dt><dd>${esc(m.hazards.join("; ") || "see recall")}</dd>
+      <dt>Remedy</dt><dd>${esc(m.remedies.join("; ") || "see recall")}</dd>
+      <dt>Evidence</dt><dd class="chips">${(m.exact || []).map((e) => `<span>${esc(e)}</span>`).join("")}${Object.keys(m.sources || {}).map((s) => `<span>${esc(s)} #${m.sources[s]}</span>`).join("")}</dd>
+      ${m.judgment ? `<dt>Gemma says</dt><dd>${esc(m.judgment.reason)}</dd>` : ""}</dl></div>`;
+  }
+  if (r.verdict === "LIKELY" || r.verdict === "UNSURE") {
+    html += `<div class="panel"><strong>Next step: photograph the label.</strong> Look for a sticker with a model number, date code or barcode (under the seat, on the frame, on the base), then scan that photo.
+      <div style="margin-top:8px"><label class="btn">Scan label photo<input type="file" accept="image/*" hidden id="labelIn"></label></div></div>`;
+  }
+  const read = r.read || {};
+  html += `<details class="panel"><summary>What Gemma read and the other candidates</summary>
+    <dl class="kv" style="margin-top:8px"><dt>Item</dt><dd>${esc(read.category)}</dd><dt>Brand</dt><dd>${esc(read.brand || "not visible")}</dd>
+    <dt>Model no.</dt><dd>${esc(read.model_number || "not visible")}</dd><dt>Time</dt><dd>${esc(r.timings.total_s)} s</dd></dl>
+    <table style="margin-top:8px"><tr><th>Candidate</th><th>Verdict</th></tr>
+    ${r.matches.map((x) => `<tr><td><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></td><td><span class="pill ${cls(x.verdict || "UNSURE")}">${esc(x.verdict || "")}</span></td></tr>`).join("")}</table></details>`;
+  html += r.notes.filter((n) => !n.startsWith("Screening")).map((n) => `<p class="muted">${esc(n)}</p>`).join("");
+  $("#result").innerHTML = html;
+  const li = $("#labelIn");
+  if (li) li.onchange = () => li.files.length && runScan([li.files[0]]);
+}
+
+async function runScan(files) {
+  const f = files[0];
+  $("#result").innerHTML = `<div class="panel"><span class="spinner"></span>Reading the photo and checking recalls... (about 15-40 s on a mid-range GPU)</div>`;
+  try {
+    const r = await (await post("/api/scan", [f], "photo")).json();
+    renderScan(r, f);
+  } catch (e) {
+    $("#result").innerHTML = `<div class="panel">Scan failed: ${esc(e.message)}</div>`;
+  }
+}
+
+let batchFiles = [];
+async function runBatch(files) {
+  batchFiles = files;
+  $("#csv").disabled = true;
+  $("#batchResult").innerHTML = `<div class="panel"><span class="spinner"></span>Checking ${files.length} photos... this takes a while; leave the tab open.</div>`;
+  try {
+    const d = await (await post("/api/batch", files, "photos")).json();
+    const flagged = d.rows.filter((r) => r.verdict === "CONFIRMED" || r.verdict === "LIKELY").length;
+    $("#batchResult").innerHTML = `<div class="panel"><strong>${flagged} of ${d.rows.length} items to pull or check before listing.</strong>
+      <table style="margin-top:8px"><tr><th>Photo</th><th>Verdict</th><th>Item</th><th>Recall</th></tr>
+      ${d.rows.map((r) => `<tr><td>${esc(r.file)}</td><td><span class="pill ${cls(r.verdict === "ERROR" ? "UNSURE" : r.verdict)}">${esc(r.verdict)}</span></td><td>${esc(r.item)}</td><td>${r.recall_url ? `<a href="${esc(r.recall_url)}" target="_blank" rel="noopener">${esc(r.recall_title)}</a>` : ""}</td></tr>`).join("")}
+      </table><p class="muted">${esc(d.disclaimer)}</p></div>`;
+    $("#csv").disabled = false;
+  } catch (e) {
+    $("#batchResult").innerHTML = `<div class="panel">Batch failed: ${esc(e.message)}</div>`;
+  }
+}
+
+$("#csv").onclick = async () => {
+  const blob = await (await post("/api/batch.csv", batchFiles, "photos")).blob();
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "cleartolist-report.csv" });
+  a.click();
+};
+
+wireDrop($("#drop1"), $("#file1"), runScan);
+wireDrop($("#drop2"), $("#file2"), runBatch);
+</script>
+</body>
+</html>
