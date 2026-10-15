@@ -125,13 +125,23 @@ def main() -> None:
         text_vecs = torch.nn.functional.normalize(tf.float(), dim=-1).cpu().numpy()
 
     NEG_DIR.mkdir(parents=True, exist_ok=True)
-    manifest: list[dict] = []
-    seen: set[str] = set()
+    # Resumable: the manifest is rewritten after every kept photo, and a rerun picks up where it stopped.
+    manifest: list[dict] = json.loads(out_manifest.read_text())["items"] if out_manifest.exists() else []
+    seen: set[str] = {it["title"] for it in manifest}
     if a.dev:  # never reuse a test negative
-        seen = {it["title"] for it in json.loads(MANIFEST.read_text())["items"]}
+        seen |= {it["title"] for it in json.loads(MANIFEST.read_text())["items"]}
     client = httpx.Client(headers={"User-Agent": UA}, timeout=60, follow_redirects=True)
+    def write() -> None:
+        out_manifest.write_text(json.dumps({
+            "source": "Wikimedia Commons",
+            "note": "Same-category product photos used as negatives. Filtered by SigLIP zero-shot category match, "
+                    "a Gemma 4 listing-photo check, and by not being a near-duplicate (cosine >= 0.92) of any "
+                    "CPSC recall image. Not individually verified as non-recalled models.",
+            "items": manifest,
+        }, indent=1))
+
     for li, (cat, (terms, _)) in enumerate(QUERIES.items()):
-        kept = 0
+        kept = sum(it["category"] == cat for it in manifest)
         for term in terms:
             if kept >= a.per_category:
                 break
@@ -159,10 +169,8 @@ def main() -> None:
                     continue
                 if float((store.vectors @ v).max()) >= 0.92:
                     continue  # looks like an actual recall photo
-                try:
-                    ok = vision.chat_json(GEMMA_PROMPT.format(label=QUERIES[cat][1]), [img], GEMMA_CHECK)
-                except Exception:
-                    continue
+                # No try/except: if Ollama is down, stop rather than silently reject every candidate.
+                ok = vision.chat_json(GEMMA_PROMPT.format(label=QUERIES[cat][1]), [img], GEMMA_CHECK)
                 if not gemma_accepts(ok):
                     continue
                 out = NEG_DIR / f"{prefix}{cat}__{len(manifest):03d}.jpg"
@@ -174,15 +182,9 @@ def main() -> None:
                     "license": lic, "license_url": meta.get("LicenseUrl", {}).get("value"),
                 })
                 kept += 1
+                write()
         print(f"{cat}: kept {kept}", file=sys.stderr)
-    out_manifest.write_text(json.dumps({
-        "source": "Wikimedia Commons",
-        "note": "Same-category product photos used as negatives. Filtered by SigLIP zero-shot category match, "
-                "a Gemma 4 listing-photo check, and by not being a near-duplicate (cosine >= 0.92) of any "
-                "CPSC recall image. Not individually "
-                "verified as non-recalled models.",
-        "items": manifest,
-    }, indent=1))
+    write()
     print(f"{len(manifest)} negatives -> {out_manifest}")
 
 
