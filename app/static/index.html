@@ -24,7 +24,7 @@ header p { margin: 4px 0 0; color: var(--muted); }
 .tabs button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 8px 16px; border-radius: 999px; cursor: pointer; font: inherit; }
 .tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 16px; }
-.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 32px 16px; text-align: center; cursor: pointer; }
+.drop { display: block; border: 2px dashed var(--line); border-radius: 12px; padding: 32px 16px; text-align: center; cursor: pointer; }
 .drop.over { border-color: var(--accent); }
 .drop input { display: none; }
 .btn { display: inline-block; background: var(--ink); color: var(--bg); border: 0; padding: 10px 18px; border-radius: 8px; font: inherit; cursor: pointer; }
@@ -97,7 +97,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":
 const cls = (v) => "v-" + (v === "NO MATCH FOUND" ? "NOMATCH" : v);
 const HEAD = {
   "CONFIRMED": ["Recalled: do not list", "A model number or UPC on the item matches a CPSC recall."],
-  "LIKELY": ["Likely recalled: check the label", "Strong visual and text match, but no model number was readable. Photograph the label to confirm."],
+  "LIKELY": ["Likely recalled: check the label", "Gemma judged your item the same design as this recalled product, but no model number was readable. Compare the photos and photograph the label to confirm."],
   "UNSURE": ["Unsure: check before listing", "Weak or conflicting evidence. Compare with the recall below and look for a model number."],
   "NO MATCH FOUND": ["No match in CPSC recalls", "This does not mean the item is safe. Recalls without photos or unusual items can be missed."],
 };
@@ -147,7 +147,7 @@ function renderScan(r, file) {
     <dt>Model no.</dt><dd>${esc(read.model_number || "not visible")}</dd><dt>Time</dt><dd>${esc(r.timings.total_s)} s${r.cached ? " (cached result from an earlier scan of this exact photo)" : ""}</dd></dl>
     <table style="margin-top:8px"><tr><th>Candidate</th><th>Verdict</th></tr>
     ${r.matches.map((x) => `<tr><td><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></td><td><span class="pill ${cls(x.verdict || "UNSURE")}">${esc(x.verdict || "")}</span></td></tr>`).join("")}</table></details>`;
-  html += r.notes.filter((n) => !n.startsWith("Screening")).map((n) => `<p class="muted">${esc(n)}</p>`).join("");
+  html += r.notes.filter((n) => !n.startsWith("Screening") && !n.startsWith("Photograph the label")).map((n) => `<p class="muted">${esc(n)}</p>`).join("");
   $("#result").innerHTML = html;
   const li = $("#labelIn");
   if (li) li.onchange = () => li.files.length && runScan([li.files[0]]);

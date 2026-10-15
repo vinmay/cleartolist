@@ -21,6 +21,12 @@ It's built for children's products first (cribs, bassinets, sleepers, strollers,
 
 **Online demo:** <!-- RENDER_URL --> a lightweight lookup and a gallery of scans run locally. Full photo scanning runs on your own computer; the demo doesn't run any vision models.
 
+| Single scan | Batch check |
+|---|---|
+| ![Single scan: LIKELY match to a Graco play-yard recall, with the recall photo, hazard, remedy and a prompt to photograph the label](docs/screenshots/app-single-scan.png) | ![Batch check: five photos, one flagged LIKELY, four with no match](docs/screenshots/app-batch.png) |
+
+<sub>Screenshots use licensed Wikimedia Commons photos from the evaluation's lookalike set, not recall photos. Play yard photo: "A crib, bassinet and changing table…" by [Famartin](https://commons.wikimedia.org/wiki/File:2022-11-20_23_49_56_A_crib,_bassinet_and_changing_table_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0); the screenshot is shared under the same license. Whether that play yard really has the recalled accessory can only be settled by its label.</sub>
+
 ## How it works
 
 ```mermaid
