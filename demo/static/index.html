@@ -37,7 +37,7 @@ label.chk { display: flex; align-items: center; gap: 6px; color: var(--muted); f
 .result h3 { margin: 0; font-size: 16px; }
 .meta { color: var(--muted); font-size: 14px; }
 .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--grey-bg); margin-right: 4px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .scan { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .scan .pair { display: grid; grid-template-columns: 1fr 1fr; }
 .scan .pair img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); }
@@ -46,9 +46,13 @@ label.chk { display: flex; align-items: center; gap: 6px; color: var(--muted); f
 .v { font-weight: 700; padding: 6px 12px; }
 .truth { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .v-CONFIRMED { background: var(--red-bg); color: var(--red); }
-.v-LIKELY { background: var(--amber-bg); color: var(--amber); }
-.v-UNSURE { background: var(--grey-bg); color: var(--grey); }
-.v-NOMATCH { background: var(--green-bg); color: var(--green); }
+.v-POSSIBLE { background: var(--amber-bg); color: var(--amber); }
+.v-NOMATCH { background: var(--grey-bg); color: var(--grey); }
+.scan .step { padding: 10px 12px; border-top: 1px solid var(--line); font-size: 14px; }
+.scan .step h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.scan .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.scan .thumbs img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); border-radius: 6px; }
+.pill { font-weight: 700; padding: 1px 8px; border-radius: 6px; font-size: 12px; }
 footer { color: var(--muted); font-size: 14px; }
 a { color: var(--accent); }
 @media (max-width: 520px) { .result { grid-template-columns: 64px 1fr; } .result img { width: 64px; height: 64px; } h1 { font-size: 26px; } }
@@ -84,7 +88,7 @@ a { color: var(--accent); }
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const cls = (v) => "v-" + (v === "NO MATCH FOUND" ? "NOMATCH" : v);
+const cls = (v) => "v-" + ({"NO MATCH FOUND": "NOMATCH", "POSSIBLE MATCH": "POSSIBLE"}[v] || v);
 
 async function search(q) {
   $("#out").innerHTML = `<p class="meta">Searching... (the free server may need a moment to wake up)</p>`;
@@ -104,16 +108,24 @@ async function search(q) {
 $("#f").onsubmit = (e) => { e.preventDefault(); search($("#q").value); };
 document.querySelectorAll("[data-q]").forEach((a) => a.onclick = (e) => { e.preventDefault(); $("#q").value = a.dataset.q; search(a.dataset.q); });
 
+function step(title, photo, c) {
+  const thumbs = [`<img src="${esc(photo)}" alt="Scanned photo">`].concat(c.recalls.map((m) => `<img src="${esc(m.image_url || "")}" alt="Recall photo">`));
+  return `<div class="step"><h4>${esc(title)} <span class="pill ${cls(c.verdict)}">${esc(c.verdict)}</span></h4>
+    <div class="thumbs">${thumbs.join("")}</div>
+    ${c.recalls.map((m) => `<div><a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>${m.code ? ` <strong>(${esc(m.code)} matches)</strong>` : ""}</div>`).join("")}
+    <div class="meta">Gemma read: ${esc(c.read_summary || "nothing legible")}</div>${c.note ? `<div class="meta">${esc(c.note)}</div>` : ""}</div>`;
+}
 fetch("/api/gallery").then((r) => r.json()).then((items) => {
   if (!items.length) { $("#gallery").innerHTML = `<p class="meta">No scans published yet.</p>`; return; }
-  $("#gallery").innerHTML = items.map((s) => `<div class="scan">
-    <div class="v ${cls(s.verdict)}">${esc(s.verdict)}</div>
-    <div class="pair"><img src="${esc(s.photo_url)}" alt="Scanned photo">${s.recall_image_url ? `<img src="${esc(s.recall_image_url)}" alt="Closest recall photo">` : `<div class="none">No recall matched</div>`}</div>
+  items.sort((a, b) => (a.kind === "pair" ? 0 : 1) - (b.kind === "pair" ? 0 : 1));
+  $("#gallery").innerHTML = items.map((s) => {
+    const fin = s.final || s.item;
+    return `<div class="scan"><div class="v ${cls(fin.verdict)}">${esc(fin.verdict)}${s.kind === "pair" ? " after the label photo" : ""}</div>
+    ${step(s.kind === "pair" ? "1. Item photo" : "Item photo", s.photo_url, s.item)}
+    ${s.kind === "pair" ? step("2. Label photo", s.label_photo_url, s.final) : ""}
     <div class="body"><div class="meta">${esc(s.photo_source)}</div>
-    ${s.recall_url ? `<a href="${esc(s.recall_url)}" target="_blank" rel="noopener">${esc(s.recall_title)}</a>` : ""}
-    <div class="meta">${esc(s.evidence || "")}</div>
-    <div class="meta">Gemma read: ${esc(s.read_summary || "")}</div>
-    ${s.truth ? `<div class="truth">Photo actually from: <a href="${esc(s.truth.url)}" target="_blank" rel="noopener">${esc(s.truth.title)}</a>. Result: <strong>${esc(s.truth.outcome)}</strong>.</div>` : ""}</div></div>`).join("");
+    ${s.truth ? `<div class="truth">Photos actually from: <a href="${esc(s.truth.url)}" target="_blank" rel="noopener">${esc(s.truth.title)}</a>. Result: <strong>${esc(s.truth.outcome)}</strong>.</div>` : ""}</div></div>`;
+  }).join("");
 });
 fetch("/api/meta").then((r) => r.json()).then((m) => {
   if (m.recall_count) $("#meta").textContent = `Recall data: U.S. Consumer Product Safety Commission (saferproducts.gov API). ${m.recall_count} recalls, newest ${m.latest_recall_date}. Refreshed nightly. Not affiliated with or endorsed by CPSC.`;

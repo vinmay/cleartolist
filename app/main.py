@@ -24,6 +24,7 @@ from verify.pipeline import DISCLAIMER, label_followup, scan
 ROOT = Path(__file__).parent
 DATA = Path("data").resolve()
 CACHE = Path("data/scan_cache")
+RESULT_FORMAT = 2  # bump when the scan result changes shape, so old cached results aren't replayed
 app = FastAPI(title="ClearToList")
 _vision: OllamaVision | None = None
 
@@ -68,7 +69,7 @@ def cached_scan(raw: bytes) -> dict[str, Any]:
     """Scan, reusing a saved result for byte-identical photos (re-uploads, batch re-runs, recorded demos)."""
     # Keyed on the recall data version too, so a refresh with new recalls invalidates old results.
     version = connect(DB_PATH).execute("SELECT MAX(last_publish_date), COUNT(*) FROM recalls").fetchone()
-    key = hashlib.sha256(raw + repr(version).encode()).hexdigest()
+    key = hashlib.sha256(raw + repr((version, RESULT_FORMAT)).encode()).hexdigest()
     path = CACHE / f"{key}.json"
     if path.exists():
         r = json.loads(path.read_text())
