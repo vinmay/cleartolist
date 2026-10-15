@@ -20,8 +20,8 @@ class Verdict(str, Enum):
 
 
 # When the shortlist is worth showing. Chosen on the dev split only (eval/gate.py); see eval/results.md.
-POSSIBLE_IMAGE_SIM = 0.70  # closest recall photo in the shortlist, SigLIP 2 cosine
-POSSIBLE_IF_TEXT_LED = True  # label/packaging photo where Gemma read words: the text-led shortlist is shown
+POSSIBLE_IMAGE_SIM = 0.81  # closest recall photo in the shortlist, SigLIP 2 cosine
+POSSIBLE_IF_TEXT_LED = False  # label photos whose words led the search; on dev this cost more than it found
 
 
 def has_code(exact: list[str]) -> bool:
