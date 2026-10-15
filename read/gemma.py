@@ -98,7 +98,7 @@ class OllamaVision:
                 "format": schema,
                 "stream": False,
                 "think": False,
-                "keep_alive": "15m",
+                "keep_alive": "30m",  # stay loaded between scans (a cold load adds ~30-60 s)
                 "options": {"temperature": temperature, "num_ctx": 4096, "num_predict": 600,
                             "repeat_penalty": 1.15},
             })

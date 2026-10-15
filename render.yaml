@@ -1,12 +1,15 @@
-# Render Blueprint for the lightweight public demo. No vision models run here.
+# Render Blueprint for the hosted ClearToList web service. It runs no vision models: photo scans are queued here
+# and processed by a self-hosted GPU worker running open models (worker/worker.py), which polls over HTTPS.
 # Recall data comes from the nightly "data-latest" GitHub release asset (see .github/workflows/refresh.yml).
+# Secrets are never in this file: set them in the Render dashboard (sync: false).
 services:
   - type: web
-    name: cleartolist-demo
+    name: cleartolist
     runtime: python
     plan: free
     buildCommand: pip install -r demo/requirements.txt
-    startCommand: uvicorn demo.server:app --host 0.0.0.0 --port $PORT
+    # No access log: request lines would include client addresses.
+    startCommand: uvicorn demo.server:app --host 0.0.0.0 --port $PORT --no-access-log --no-server-header
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
@@ -16,3 +19,13 @@ services:
         value: /tmp/demo.db
       - key: CTL_DEMO_DB_URL
         value: https://github.com/vinmay/cleartolist/releases/download/data-latest/demo.db
+      # Kill switch: photo uploads are off unless this is 1 (lookup stays on). The admin endpoint can flip it
+      # instantly at runtime without a redeploy (scripts/killswitch.py).
+      - key: CTL_UPLOADS_ENABLED
+        value: "0"
+      - key: CTL_INVITE_CODES
+        sync: false
+      - key: CTL_WORKER_SECRET
+        sync: false
+      - key: CTL_ADMIN_SECRET
+        sync: false

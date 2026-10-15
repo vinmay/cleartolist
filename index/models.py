@@ -16,8 +16,13 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST_URL", "http://127.0.0.1:11434")
 
 
 def device() -> str:
+    """CTL_IMAGE_DEVICE=cpu keeps SigLIP off the GPU (the worker does this so Gemma and EmbeddingGemma both stay
+    resident on a 6 GB card; one image on CPU takes well under a second)."""
     import torch
 
+    forced = os.environ.get("CTL_IMAGE_DEVICE")
+    if forced:
+        return forced
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -97,7 +102,7 @@ class OllamaTextEmbedder:
         self.dim = 0
 
     def _embed(self, texts: Sequence[str]) -> np.ndarray:
-        r = self.client.post("/api/embed", json={"model": self.name, "input": list(texts)})
+        r = self.client.post("/api/embed", json={"model": self.name, "input": list(texts), "keep_alive": "30m"})
         r.raise_for_status()
         out = _l2(np.asarray(r.json()["embeddings"], dtype=np.float32))
         self.dim = out.shape[1]

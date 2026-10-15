@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,7 +18,20 @@ jobs:
           python-version: "3.12"
       - name: Lint
         run: uvx ruff@0.14.0 check .
-      # Core logic (normalization, categories, fusion, verdicts, API retry/cache) needs no models,
-      # so CI skips the multi-GB torch install.
+      # Core logic (normalization, categories, fusion, verdicts, API retry/cache, hosted service, worker mapping)
+      # needs no models, so CI skips the multi-GB torch install.
       - name: Tests
-        run: uv run --no-project --with pytest --with httpx --with numpy --with pillow pytest -q
+        run: >-
+          uv run --no-project --with pytest --with httpx --with numpy --with pillow==12.3.0
+          --with fastapi==0.143.1 --with python-multipart==0.0.32 pytest -q
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # scan the whole history, not just the last commit
+      - name: Secret scan (gitleaks)
+        run: >-
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.18.4
+          detect --source /repo --redact --no-banner -v
