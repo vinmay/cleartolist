@@ -1,7 +1,3 @@
-# planning / handoff docs (never committed)
-CLEARTOLIST_HANDOFF.md
-.notes/
-
 # local data: sqlite db, images, vectors
 data/
 eval/owner_photos/*
