@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sqlite3
+import urllib.error
 import urllib.request
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -37,7 +38,12 @@ def ensure_db() -> None:
         return
     DB.parent.mkdir(parents=True, exist_ok=True)
     tmp = DB.with_suffix(".part")
-    urllib.request.urlretrieve(DB_URL, tmp)  # noqa: S310 — fixed https URL from config
+    try:
+        urllib.request.urlretrieve(DB_URL, tmp)  # noqa: S310 — fixed https URL from config
+    except urllib.error.HTTPError as e:
+        hint = (" Release assets of a private GitHub repo return 404 to anonymous downloads: make the repo public, "
+                "or point CTL_DEMO_DB_URL at a public copy of demo.db.") if e.code == 404 else ""
+        raise RuntimeError(f"Could not download the demo database from {DB_URL}: HTTP {e.code}.{hint}") from e
     tmp.replace(DB)
 
 
