@@ -49,3 +49,11 @@ def test_normalize_record_collects_models_and_upcs():
     assert n["upcs"] == ["012345678905"]
     assert n["images"] == ["https://example.com/a.jpg"]
     assert n["manufacturers"] == ["Acme Inc."]
+
+
+def test_reader_placeholders_become_empty():
+    from read.gemma import clean_field
+
+    assert clean_field("empty string") == ""
+    assert clean_field(" None ") == ""
+    assert clean_field("Graco") == "Graco"

@@ -67,7 +67,8 @@ CREATE INDEX IF NOT EXISTS idx_models ON model_numbers(model);
 """
 
 
-def connect(path: Path = DB_PATH) -> sqlite3.Connection:
+def connect(path: Path | str = DB_PATH) -> sqlite3.Connection:
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA)

@@ -32,7 +32,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
-from index.build import VectorStore, image_store_path
+from index.build import VectorStore, image_kinds, image_store_path
 from index.models import load_image
 from ingest.categories import CHILD_CATEGORIES
 from ingest.cpsc import DB_PATH, connect
@@ -92,9 +92,10 @@ def leakage_exclusions(store: VectorStore, held: str, hashes: dict[str, str]) ->
     return sorted(near | same | {held})
 
 
-def build(per_category: int = 15, seed: int = 7) -> list[dict]:
+def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40) -> list[dict]:
     conn = connect(DB_PATH)
     store = VectorStore.load(image_store_path())
+    kind = dict(zip((str(k) for k in store.keys), image_kinds(store), strict=True))
     indexed = {str(k) for k in store.keys}
     by_recall: dict[int, list[str]] = defaultdict(list)
     for rid, p in conn.execute("SELECT recall_id, path FROM images WHERE path IS NOT NULL ORDER BY path"):
@@ -116,12 +117,17 @@ def build(per_category: int = 15, seed: int = 7) -> list[dict]:
         rng.shuffle(pool)
         taken = 0
         for rid in pool:
-            if taken >= per_category:
+            if taken >= (per_child_category if run_of(cat) == "children" else per_category):
                 break
-            held = by_recall[rid][0]  # first image is usually the main product shot
+            # A reseller photographs the item itself, so the query is a product shot (label close-ups
+            # are the follow-up "photograph the label" step, handled by Gemma reading + exact match).
+            products = [p for p in by_recall[rid] if kind[p] == "product"]
+            if not products:
+                continue
+            held = products[0]
             excl = leakage_exclusions(store, held, hashes)
-            if not [p for p in by_recall[rid] if p not in set(excl)]:
-                continue  # every other image of this recall is a copy of the query
+            if not [p for p in products if p not in set(excl)]:
+                continue  # no other distinct product photo of this recall to match against
             out = WORK / "pos" / f"{rid}.jpg"
             degrade(load_image(held), rng).save(out, quality=90)
             queries.append({"path": str(out), "label": "pos", "recall_id": rid, "category": cat,
@@ -149,10 +155,11 @@ def build(per_category: int = 15, seed: int = 7) -> list[dict]:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--per-category", type=int, default=15)
+    ap.add_argument("--per-category", type=int, default=20)
+    ap.add_argument("--per-child-category", type=int, default=40)
     ap.add_argument("--seed", type=int, default=7)
     a = ap.parse_args()
-    q = build(a.per_category, a.seed)
+    q = build(a.per_category, a.seed, a.per_child_category)
     for run in ("children", "mixed", "owner"):
         pos = sum(x["label"] == "pos" and x["run"] == run for x in q)
         neg = sum(x["label"] == "neg" and x["run"] == run for x in q)

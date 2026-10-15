@@ -6,7 +6,9 @@ the set is reproducible and attributable. The images themselves go to data/negat
 
 Candidates are filtered automatically:
   1. SigLIP zero-shot: the photo must look like its target category more than any other.
-  2. Not a near-duplicate (cosine >= 0.92) of any CPSC recall image.
+  2. Gemma 4 check: the product is the clear subject, photographed like a listing photo
+     (no paintings, historical black-and-white photos or people-centred shots).
+  3. Not a near-duplicate (cosine >= 0.92) of any CPSC recall image.
 We cannot prove that a Commons photo does not show a recalled model; the manifest notes
 this, and the false-alarm numbers should be read with it in mind.
 
@@ -30,6 +32,7 @@ from PIL import Image
 
 from index.build import VectorStore, image_store_path
 from index.models import image_embedder, load_image
+from read.gemma import OllamaVision
 
 NEG_DIR = Path("data/negatives")
 MANIFEST = Path("eval/negatives_manifest.json")
@@ -40,10 +43,12 @@ OK_LICENSES = re.compile(r"^(CC0|Public domain|PD|CC BY(-SA)? [1-4]\.0)", re.I)
 # eval category -> (Commons search terms, zero-shot label)
 QUERIES: dict[str, tuple[list[str], str]] = {
     # children's run
-    "crib_bassinet_sleeper": (["baby crib", "bassinet", "cot bed baby"], "a baby crib or bassinet"),
-    "stroller": (["baby stroller", "pushchair", "pram baby"], "a baby stroller"),
-    "high_chair": (["high chair baby", "highchair"], "a baby high chair"),
-    "play_yard": (["playpen baby", "play yard baby"], "a baby playpen"),
+    "crib_bassinet_sleeper": (["baby crib", "bassinet", "cot bed baby", "baby cot", "crib nursery"],
+                              "a baby crib or bassinet"),
+    "stroller": (["baby stroller", "pushchair", "pram baby", "buggy stroller", "jogging stroller"], "a baby stroller"),
+    "high_chair": (["high chair baby", "highchair", "children's high chair", "baby chair feeding"],
+                   "a baby high chair"),
+    "play_yard": (["playpen baby", "play yard baby", "travel cot", "baby playpen"], "a baby playpen"),
     "toy": (["children's toy", "wooden toy", "plush toy", "toy car"], "a children's toy"),
     "other_child": (["baby bouncer", "baby carrier", "baby walker", "baby bath seat"], "a baby product"),
     # mixed run
@@ -56,10 +61,20 @@ QUERIES: dict[str, tuple[list[str], str]] = {
     "home": (["candle jar", "vacuum cleaner", "hair dryer"], "a household item"),
 }
 DISTRACTOR_LABELS = ["a person", "a building", "a landscape", "a drawing or diagram", "a car", "an animal",
-                     "text or a document", "a group of people"]
+                     "text or a document", "a group of people", "a painting", "an old black and white photograph",
+                     "a parent holding a baby"]
+
+GEMMA_CHECK = {
+    "type": "object",
+    "properties": {"is_listing_photo": {"type": "boolean"}},
+    "required": ["is_listing_photo"],
+}
+GEMMA_PROMPT = ("Is the main subject of this photo {label}, shown clearly as an object the way a seller would "
+                "photograph it for an online listing? Answer false for drawings, paintings, black-and-white "
+                "historical photos, crowds, or photos that are mainly about people. JSON only.")
 
 
-def commons_search(client: httpx.Client, term: str, limit: int = 40) -> list[dict]:
+def commons_search(client: httpx.Client, term: str, limit: int = 50) -> list[dict]:
     params = {
         "action": "query", "format": "json", "generator": "search", "gsrnamespace": 6,
         "gsrsearch": f"{term} filetype:bitmap", "gsrlimit": limit, "prop": "imageinfo",
@@ -85,6 +100,7 @@ def main() -> None:
     ap.add_argument("--per-category", type=int, default=12)
     a = ap.parse_args()
     emb = image_embedder()
+    vision = OllamaVision()
     store = VectorStore.load(image_store_path())
     from transformers import AutoTokenizer
 
@@ -131,6 +147,12 @@ def main() -> None:
                     continue
                 if float((store.vectors @ v).max()) >= 0.92:
                     continue  # looks like an actual recall photo
+                try:
+                    ok = vision.chat_json(GEMMA_PROMPT.format(label=QUERIES[cat][1]), [img], GEMMA_CHECK)
+                except Exception:
+                    continue
+                if not ok.get("is_listing_photo"):
+                    continue
                 out = NEG_DIR / f"{cat}__{len(manifest):03d}.jpg"
                 img.save(out, quality=92)
                 manifest.append({
@@ -143,8 +165,9 @@ def main() -> None:
         print(f"{cat}: kept {kept}", file=sys.stderr)
     MANIFEST.write_text(json.dumps({
         "source": "Wikimedia Commons",
-        "note": "Same-category product photos used as negatives. Filtered by SigLIP zero-shot category match "
-                "and by not being a near-duplicate (cosine >= 0.92) of any CPSC recall image. Not individually "
+        "note": "Same-category product photos used as negatives. Filtered by SigLIP zero-shot category match, "
+                "a Gemma 4 listing-photo check, and by not being a near-duplicate (cosine >= 0.92) of any "
+                "CPSC recall image. Not individually "
                 "verified as non-recalled models.",
         "items": manifest,
     }, indent=1))

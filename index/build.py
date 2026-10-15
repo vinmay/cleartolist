@@ -159,6 +159,34 @@ def build_text_index(conn: sqlite3.Connection, model: str = DEFAULT_TEXT_MODEL, 
     return store
 
 
+KIND_LABELS = ["product", "label", "diagram", "packaging"]
+_KIND_PROMPTS = ["a photo of a product", "a close-up photo of a label, sticker, tag or barcode",
+                 "a diagram or illustration with text", "a photo of packaging or a box"]
+
+
+def image_kinds(store: VectorStore, model: str = DEFAULT_IMAGE_MODEL) -> np.ndarray:
+    """Zero-shot tag each indexed image as product / label / diagram / packaging (cached)."""
+    path = VEC_DIR / f"kinds_{slug(model)}.npz"
+    if path.exists():
+        z = np.load(path)
+        if len(z["keys"]) == len(store.keys) and (z["keys"] == store.keys).all():
+            return z["kinds"]
+    import torch
+    from transformers import AutoTokenizer
+
+    emb = image_embedder(model)
+    tok = AutoTokenizer.from_pretrained(model)
+    t = tok([f"This is {p}." for p in _KIND_PROMPTS], padding="max_length", max_length=64,
+            return_tensors="pt").to(emb.dev)
+    with torch.inference_mode():
+        tf = emb.model.get_text_features(**t)
+        tf = tf if isinstance(tf, torch.Tensor) else tf.pooler_output
+    tv = torch.nn.functional.normalize(tf.float(), dim=-1).cpu().numpy()
+    kinds = np.array(KIND_LABELS)[(store.vectors @ tv.T).argmax(1)]
+    np.savez(path, keys=store.keys, kinds=kinds)
+    return kinds
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--image", action="store_true")
@@ -169,6 +197,7 @@ def main() -> None:
     conn = connect(DB_PATH)
     if args.image or both:
         s = build_image_index(conn, args.image_model)
+        image_kinds(s, args.image_model)
         print(f"image vectors: {s.vectors.shape}", file=sys.stderr)
     if args.text or both:
         s = build_text_index(conn)

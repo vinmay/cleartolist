@@ -8,7 +8,6 @@ from functools import lru_cache
 from typing import Protocol
 
 import numpy as np
-import torch
 from PIL import Image, ImageOps
 
 DEFAULT_IMAGE_MODEL = os.environ.get("CTL_IMAGE_MODEL", "google/siglip2-base-patch16-224")
@@ -17,6 +16,8 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST_URL", "http://127.0.0.1:11434")
 
 
 def device() -> str:
+    import torch
+
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -53,6 +54,7 @@ class HFImageEmbedder:
     """SigLIP / SigLIP 2 / CLIP image tower from Hugging Face transformers."""
 
     def __init__(self, name: str = DEFAULT_IMAGE_MODEL):
+        import torch
         from transformers import AutoModel, AutoProcessor
 
         self.name = name
@@ -65,8 +67,15 @@ class HFImageEmbedder:
                        if hasattr(self.model.config.vision_config, "projection_dim")
                        else self.model.config.vision_config.hidden_size)
 
-    @torch.inference_mode()
     def embed(self, images: Sequence[Image.Image]) -> np.ndarray:
+        import torch
+
+        with torch.inference_mode():
+            return self._embed(images)
+
+    def _embed(self, images: Sequence[Image.Image]) -> np.ndarray:
+        import torch
+
         inputs = self.processor(images=list(images), return_tensors="pt").to(self.dev)
         inputs = {k: (v.to(self.dtype) if v.is_floating_point() else v) for k, v in inputs.items()}
         feats = self.model.get_image_features(**inputs)

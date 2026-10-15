@@ -33,7 +33,7 @@ READ_SCHEMA: dict[str, Any] = {
 
 READ_PROMPT = """You are helping a secondhand reseller identify an item before listing it.
 Look at the photo and describe the product. Only report brand, model number and UPC if you can actually
-read them or the brand is unmistakable; never invent them, use an empty string instead.
+read them or the brand is unmistakable; never invent them. If not visible, leave the field as "" (nothing).
 Respond with JSON only."""
 
 
@@ -93,12 +93,21 @@ class OllamaVision:
         return json.loads(r.json()["message"]["content"])
 
 
+_EMPTY = {"", "empty string", "empty", "none", "unknown", "n/a", "na", "not visible", "not legible", "null", "''"}
+
+
+def clean_field(v: object) -> str:
+    """Small models sometimes write the placeholder instead of leaving the field empty."""
+    s = str(v or "").strip().strip('"').strip()
+    return "" if s.lower() in _EMPTY else s
+
+
 def read_item(img: Image.Image | str, client: OllamaVision | None = None) -> ItemRead:
     client = client or OllamaVision()
     img = load_image(img)
     data = client.chat_json(READ_PROMPT, [img], READ_SCHEMA)
-    known = {k: data.get(k, ItemRead.__dataclass_fields__[k].default) for k in READ_SCHEMA["properties"]}
-    return ItemRead(**known, raw=data)
+    known = {k: clean_field(data.get(k)) for k in READ_SCHEMA["properties"] if k != "child_product"}
+    return ItemRead(**known, child_product=bool(data.get("child_product")), raw=data)
 
 
 if __name__ == "__main__":
