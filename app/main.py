@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import os
@@ -16,11 +17,13 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from PIL import Image
 
+from ingest.cpsc import DB_PATH, connect
 from read.gemma import OllamaVision
 from verify.pipeline import DISCLAIMER, scan
 
 ROOT = Path(__file__).parent
 DATA = Path("data").resolve()
+CACHE = Path("data/scan_cache")
 app = FastAPI(title="ClearToList")
 _vision: OllamaVision | None = None
 
@@ -61,10 +64,26 @@ def _public(result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def cached_scan(raw: bytes) -> dict[str, Any]:
+    """Scan, reusing a saved result for byte-identical photos (re-uploads, batch re-runs, recorded demos)."""
+    # Keyed on the recall data version too, so a refresh with new recalls invalidates old results.
+    version = connect(DB_PATH).execute("SELECT MAX(last_publish_date), COUNT(*) FROM recalls").fetchone()
+    key = hashlib.sha256(raw + repr(version).encode()).hexdigest()
+    path = CACHE / f"{key}.json"
+    if path.exists():
+        r = json.loads(path.read_text())
+        r["cached"] = True
+        return r
+    r = scan(_open(raw), vision=vision()).to_dict()
+    CACHE.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(r))
+    r["cached"] = False
+    return r
+
+
 @app.post("/api/scan")
 async def api_scan(photo: UploadFile = File(...)) -> dict[str, Any]:
-    img = _open(await photo.read())
-    return _public(scan(img, vision=vision()).to_dict())
+    return _public(cached_scan(await photo.read()))
 
 
 @app.post("/api/batch")
@@ -72,7 +91,7 @@ async def api_batch(photos: list[UploadFile] = File(...)) -> dict[str, Any]:
     rows = []
     for f in photos:
         try:
-            r = scan(_open(await f.read()), vision=vision()).to_dict()
+            r = cached_scan(await f.read())
         except HTTPException as e:
             rows.append({"file": f.filename, "verdict": "ERROR", "error": e.detail})
             continue

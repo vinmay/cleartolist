@@ -66,12 +66,18 @@ DISTRACTOR_LABELS = ["a person", "a building", "a landscape", "a drawing or diag
 
 GEMMA_CHECK = {
     "type": "object",
-    "properties": {"is_listing_photo": {"type": "boolean"}},
-    "required": ["is_listing_photo"],
+    "properties": {
+        "main_subject": {"type": "string", "enum": ["a product or object", "people", "a drawing or painting",
+                                                     "an old black-and-white photo", "a building or scene"]},
+        "is_target": {"type": "boolean"},
+    },
+    "required": ["main_subject", "is_target"],
 }
-GEMMA_PROMPT = ("Is the main subject of this photo {label}, shown clearly as an object the way a seller would "
-                "photograph it for an online listing? Answer false for drawings, paintings, black-and-white "
-                "historical photos, crowds, or photos that are mainly about people. JSON only.")
+GEMMA_PROMPT = "What is the main subject of this photo? Then: is the main object {label}? JSON only."
+
+
+def gemma_accepts(answer: dict) -> bool:
+    return answer.get("main_subject") == "a product or object" and bool(answer.get("is_target"))
 
 
 def commons_search(client: httpx.Client, term: str, limit: int = 50) -> list[dict]:
@@ -151,7 +157,7 @@ def main() -> None:
                     ok = vision.chat_json(GEMMA_PROMPT.format(label=QUERIES[cat][1]), [img], GEMMA_CHECK)
                 except Exception:
                     continue
-                if not ok.get("is_listing_photo"):
+                if not gemma_accepts(ok):
                     continue
                 out = NEG_DIR / f"{cat}__{len(manifest):03d}.jpg"
                 img.save(out, quality=92)

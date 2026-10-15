@@ -10,10 +10,12 @@ import sys
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 from PIL import Image
 
+from index.build import VectorStore, image_kinds, image_store_path
 from index.models import load_image
 from ingest.cpsc import DB_PATH, connect
 from read.gemma import ItemRead, OllamaVision
@@ -25,6 +27,22 @@ DISCLAIMER = ("Screening aid only, not legal advice. 'No match found' means no m
               "not that the item is safe. Always confirm at cpsc.gov.")
 CAR_SEAT_NOTE = ("Car seats are regulated by NHTSA, not CPSC, and are not covered here. "
                  "Check the seat's label at nhtsa.gov/recalls.")
+
+
+@lru_cache(maxsize=1)
+def _kinds() -> dict[str, str]:
+    store = VectorStore.load(image_store_path())
+    return dict(zip((str(k) for k in store.keys), image_kinds(store), strict=True))
+
+
+def pick_recall_image(best: str | None, images: list[str], exclude: set[str]) -> str | None:
+    """The image-search hit if there is one, else the recall's first product photo (not a label shot)."""
+    if best:
+        return best
+    usable = [p for p in images if p not in exclude]
+    kinds = _kinds()
+    products = [p for p in usable if kinds.get(p) == "product"]
+    return (products or usable or [None])[0]
 
 
 @dataclass
@@ -61,7 +79,8 @@ def scan(
     vision = vision or OllamaVision()
     img = load_image(photo)
     t0 = time.perf_counter()
-    res = retrieve(img, mode=mode, k=k, exclude_keys=exclude_keys, read=read, vision=vision)
+    exclude = set(exclude_keys)
+    res = retrieve(img, mode=mode, k=k, exclude_keys=exclude, read=read, vision=vision)
     t1 = time.perf_counter()
     conn = connect(DB_PATH)
     matches: list[dict[str, Any]] = []
@@ -69,7 +88,7 @@ def scan(
         ctx = recall_context(conn, c.recall_id)
         m = {"rank": rank, "recall_id": c.recall_id, "title": ctx["title"], "url": ctx["url"],
              "hazards": ctx["hazards"], "remedies": ctx["remedies"], "manufacturers": ctx["manufacturers"],
-             "recall_image": c.best_image or (ctx["images"][0] if ctx["images"] else None),
+             "recall_image": pick_recall_image(c.best_image, ctx["images"], exclude),
              "exact": c.exact, "sources": c.sources, "score": round(c.score, 5)}
         if verify and m["recall_image"]:
             j = judge(vision, img, m["recall_image"], ctx, res.read)

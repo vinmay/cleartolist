@@ -144,7 +144,7 @@ function renderScan(r, file) {
   const read = r.read || {};
   html += `<details class="panel"><summary>What Gemma read and the other candidates</summary>
     <dl class="kv" style="margin-top:8px"><dt>Item</dt><dd>${esc(read.category)}</dd><dt>Brand</dt><dd>${esc(read.brand || "not visible")}</dd>
-    <dt>Model no.</dt><dd>${esc(read.model_number || "not visible")}</dd><dt>Time</dt><dd>${esc(r.timings.total_s)} s</dd></dl>
+    <dt>Model no.</dt><dd>${esc(read.model_number || "not visible")}</dd><dt>Time</dt><dd>${esc(r.timings.total_s)} s${r.cached ? " (cached result from an earlier scan of this exact photo)" : ""}</dd></dl>
     <table style="margin-top:8px"><tr><th>Candidate</th><th>Verdict</th></tr>
     ${r.matches.map((x) => `<tr><td><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></td><td><span class="pill ${cls(x.verdict || "UNSURE")}">${esc(x.verdict || "")}</span></td></tr>`).join("")}</table></details>`;
   html += r.notes.filter((n) => !n.startsWith("Screening")).map((n) => `<p class="muted">${esc(n)}</p>`).join("");
