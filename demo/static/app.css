@@ -64,3 +64,5 @@ a { color: var(--accent); }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -2px; margin-right: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 600px) { .scanform .row2 { grid-template-columns: 1fr; } .short { grid-template-columns: 1fr 1fr; } }
+.closest { background: var(--grey-bg); border-radius: 10px; padding: 12px; margin-top: 12px; }
+.closest .short img { filter: saturate(0.6); }

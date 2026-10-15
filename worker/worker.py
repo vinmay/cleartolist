@@ -90,7 +90,9 @@ def to_wire(item: dict[str, Any], final: dict[str, Any], label: dict[str, Any] |
         notes.append("label_other_recall")
     if "car seat" in clip((item.get("read") or {}).get("category"), 80).lower():
         notes.append("car_seat")
-    return {"verdict": verdict, "shortlist": shortlist if verdict != "NO MATCH FOUND" else [],
+    closest = verdict == "NO MATCH FOUND" and bool(final.get("closest")) and bool(shortlist)
+    return {"verdict": verdict, "shortlist": shortlist if verdict != "NO MATCH FOUND" or closest else [],
+            "closest": closest,
             "read": read_fields(item.get("read")), "label_read": read_fields(label.get("read")) if label else None,
             "notes": notes, "seconds": round(seconds, 2)}
 

@@ -362,6 +362,7 @@ class WorkerResult(BaseModel):
     read: Read = Field(default_factory=Read)
     label_read: Read | None = None
     notes: list[NOTE] = Field(default_factory=list, max_length=4)
+    closest: bool = False  # NO MATCH FOUND with the three closest recalls shown as suggestions, not matches
     seconds: float = Field(0, ge=0, le=600)
 
 
@@ -389,11 +390,12 @@ def render_result(w: WorkerResult) -> dict[str, Any]:
         QUEUE.count("downgraded_confirmed")
     if verdict == "CONFIRMED":
         cards = cards[:1]
-    if verdict == "NO MATCH FOUND":
-        cards = []
     if verdict == "POSSIBLE MATCH" and not cards:
         verdict = "NO MATCH FOUND"
-    return {"verdict": verdict, "recalls": cards, "read": w.read.model_dump(),
+    closest = verdict == "NO MATCH FOUND" and w.closest and bool(cards)
+    if verdict == "NO MATCH FOUND":
+        cards = [{**c, "codes": []} for c in cards] if closest else []
+    return {"verdict": verdict, "closest": closest, "recalls": cards, "read": w.read.model_dump(),
             "label_read": w.label_read.model_dump() if w.label_read else None,
             "notes": list(dict.fromkeys(w.notes)), "seconds": round(w.seconds, 1)}
 

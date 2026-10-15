@@ -52,3 +52,17 @@ def decide(
     if text_led and if_text_led and exact:
         return Verdict.POSSIBLE, None
     return Verdict.NO_MATCH, None
+
+
+# Display policy (not a verdict): when nothing triggers, children's products still get their three closest recalls,
+# shown in grey as suggestions to check, never as a match. Chosen on the dev split (eval/display_policy.py): it raised
+# "right recall shown" for children's products from 25% to 59% there.
+CLOSEST_FOR_CHILDREN = True
+
+
+def show_closest(verdict: Verdict, child_product: bool, top_category: str | None) -> bool:
+    from ingest.categories import CHILD_CATEGORIES
+
+    if verdict != Verdict.NO_MATCH or not CLOSEST_FOR_CHILDREN:
+        return False
+    return child_product or top_category in CHILD_CATEGORIES

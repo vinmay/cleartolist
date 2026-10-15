@@ -249,3 +249,16 @@ def test_security_headers_and_no_input_echo(client):
 def test_unknown_job_and_bad_ids(client):
     assert client.get("/api/jobs/not-a-job").status_code == 404
     assert signed(client, "GET", "/worker/jobs/../../etc/photo/item").status_code in (401, 404)
+
+
+def test_closest_recalls_render_as_suggestions_without_codes(client):
+    job = submit(client).json()["job"]
+    run_worker(client, {"verdict": "NO MATCH FOUND", "closest": True,
+                        "shortlist": [{"recall_id": 101, "codes": ["model:AB1234"]}]})
+    res = client.get(f"/api/jobs/{job}").json()["result"]
+    assert res["verdict"] == "NO MATCH FOUND" and res["closest"] is True
+    assert res["recalls"][0]["recall_id"] == 101 and res["recalls"][0]["codes"] == []
+    job = submit(client, ip="5.5.5.5").json()["job"]
+    run_worker(client, {"verdict": "NO MATCH FOUND", "shortlist": [{"recall_id": 101, "codes": []}]})
+    res = client.get(f"/api/jobs/{job}").json()["result"]
+    assert res["closest"] is False and res["recalls"] == []

@@ -61,3 +61,11 @@ def test_display_field_drops_markup_and_placeholders(raw, want):
     from worker.worker import display_field
 
     assert display_field(raw, 80) == want
+
+
+def test_closest_recalls_are_sent_only_with_no_match():
+    item = scan("NO MATCH FOUND", [{"recall_id": 7, "exact": ["model:AB1234"]}]) | {"closest": True}
+    w = to_wire(item, item, None, 1)
+    assert w["closest"] and w["shortlist"] == [{"recall_id": 7, "codes": ["model:AB1234"]}]
+    item = scan("NO MATCH FOUND", [{"recall_id": 7, "exact": []}])
+    assert to_wire(item, item, None, 1)["shortlist"] == []

@@ -56,6 +56,11 @@ function renderResult(res, hadLabel) {
     h += `<div class="short"><figure><img src="${photoUrl}" alt="Your photo"><figcaption class="meta">Your photo</figcaption></figure>
       ${res.recalls.map((m) => `<figure><img src="${safeUrl(m.image_urls[0])}" alt="Recall photo"><figcaption><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></figcaption></figure>`).join("")}</div>`;
   }
+  if (res.closest && res.recalls.length) {
+    h += `<div class="closest"><strong>Closest recalls to check</strong> <span class="meta">These are suggestions, not matches: nothing here met the bar for a possible match. If your item is one of these products, check its label against the recall page.</span>
+      <div class="short"><figure><img src="${photoUrl}" alt="Your photo"><figcaption class="meta">Your photo</figcaption></figure>
+      ${res.recalls.map((m) => `<figure><img src="${safeUrl(m.image_urls[0])}" alt="Recall photo"><figcaption><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></figcaption></figure>`).join("")}</div></div>`;
+  }
   const notes = res.notes.filter((n) => !(n === "label_ask" && hadLabel));
   if (res.verdict === "POSSIBLE MATCH" && !hadLabel && !notes.includes("label_ask")) notes.unshift("label_ask");
   h += notes.map((n) => `<p class="meta">${esc(noteText(n, res))}</p>`).join("");

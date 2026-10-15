@@ -38,6 +38,8 @@ header p { margin: 4px 0 0; color: var(--muted); }
 .short img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); border-radius: 8px; }
 .short figcaption { margin-top: 4px; }
 .short .you figcaption { color: var(--muted); }
+.closest { background: var(--grey-bg); }
+.closest .short img { filter: saturate(0.6); }
 .steps { display: flex; gap: 8px; margin-top: 16px; font-size: 14px; color: var(--muted); }
 .steps span { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); }
 .steps span.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
@@ -129,6 +131,12 @@ function shortlist(r, photoUrl) {
     ${r.matches.map((m) => `<figure><img src="${esc(m.recall_image_url || "")}" alt="Recall photo"><figcaption><a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a><br><span class="muted">Models: ${esc(m.models || "not listed")}</span></figcaption></figure>`).join("")}</div></div>`;
 }
 
+function closestList(r, photoUrl) {
+  return `<div class="panel closest"><strong>Closest recalls to check</strong> <span class="muted">These are suggestions, not matches: nothing here met the bar for a possible match. If your item is one of these products, check its label against the recall page.</span>
+    <div class="short"><figure class="you"><img src="${photoUrl}" alt="Your photo"><figcaption>Your photo</figcaption></figure>
+    ${r.matches.map((m) => `<figure><img src="${esc(m.recall_image_url || "")}" alt="Recall photo"><figcaption><a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></figcaption></figure>`).join("")}</div></div>`;
+}
+
 function labelAsk() {
   return `<div class="panel"><strong>Next: photograph the label.</strong> Look for a sticker with a model number, date code or barcode (under the seat, on the frame, on the base), then scan that photo.
     <div style="margin-top:8px"><label class="btn">Scan label photo<input type="file" accept="image/*" hidden id="labelIn"></label></div></div>`;
@@ -147,6 +155,7 @@ function render(r, step, photoUrl, caption) {
   let html = steps(step) + `<div class="banner ${cls(r.verdict)}">${esc(title)}<small>${esc(sub)}</small></div>`;
   if (r.verdict === "CONFIRMED") html += recallCard(r.matches[0], photoUrl, caption);
   if (r.verdict === "POSSIBLE MATCH") html += shortlist(r, URL.createObjectURL(itemFile));
+  if (r.verdict === "NO MATCH FOUND" && r.closest && r.matches.length) html += closestList(r, URL.createObjectURL(itemFile));
   html += r.notes.filter((n) => !n.startsWith("Screening") && !n.startsWith("Photograph the label")).map((n) => `<p class="muted">${esc(n)}</p>`).join("");
   if (r.verdict !== "CONFIRMED") html += labelAsk();
   html += details(r);

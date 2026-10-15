@@ -118,6 +118,8 @@ All numbers are from a held-out test on a 6 GB consumer GPU. Each positive is a 
 |---|---|---|---|
 | positives / negatives | 150 / 41 | 180 / 83 | 40 / 0 |
 | **right recall shown to the user** (CONFIRMED, or in a POSSIBLE MATCH shortlist) | **34%** | **37%** | **15%** |
+| right recall shown, Run 3b (adds grey "closest recalls to check" for children's products) | 63% | 38% | 57% |
+| lookalikes shown any recall: Run 3 → Run 3b | 5% → 98% | 24% → 37% | n/a |
 | right recall in the top-3 shortlist, before the POSSIBLE MATCH gate | 67% | 64% | 60% |
 | image only, top-3 | 69% | 59% | 18% |
 | CONFIRMED: count, right (Run 3 → with brand check) | 0 → 0 | 4, 2 right → 3, 2 right | 2, 2 right → 2, 2 right |
@@ -131,6 +133,8 @@ What this says, plainly:
 - **The label photo is what makes a verdict reliable.** CONFIRMED needs a model number or UPC read off the item that matches a recall; with the brand check it's right 4 of 5 times across all three test sets and raises no false alarm on 124 lookalikes. Generic-looking products (cribs and sleepers: 45% image top-3; furniture: 40%) depend on that label, and on label close-ups Gemma's reading finds the recall where image search can't (60% vs 18% top-3).
 - **The kill criterion** set before building the app was about 60% top-3 on children's products, from the photo alone; the spike passed at 71% (n=90) and the test lands at 67-69%. It measures whether retrieval is worth building on, not what a user sees, which is the 34% above.
 - **What's weak:** a standalone label photo rarely clears the image-similarity gate (15% shown right), which is why the two-photo flow reads the label for codes instead of treating it as an item photo.
+
+**Post-test display policy, disclosed: Run 3b** ([details](eval/display_policy.md)). When nothing triggers for a children's product, the page now shows its three closest recalls in grey as "closest recalls to check", worded as suggestions, not matches, with no alarm; the verdict stays NO MATCH FOUND. The rule (adopt only if right recall shown rises at least 15 points on dev) was fixed first; on dev it rose 25% → 59% for children's products, so it was adopted and applied once to the saved Run 3 rows: 34% → 63%. The cost is plain in the table: nearly every children's lookalike (98%) now gets three suggestions too, which is why they're grey and never called a match. Alarms are unchanged: CONFIRMED still needs a code.
 
 **Post-test fix, disclosed** ([details](eval/confirm_fix.md)). Run 3 had 2 wrong CONFIRMED verdicts out of 4 in the other-categories run. One was a false alarm: a camera-battery label listing compatible cameras ("EOS 100D") matched an unrelated recall's model number "100D". The other had the right model number (Intertex VP-33), but that number appears in two recalls of the same product line and the other one was picked. On the dev split, a rule that vetoes a code match when the brand read off the item contradicts the recall removed both wrong CONFIRMED verdicts there and kept all correct ones. Applied once to the saved Run 3 rows (verdict step only), it removes the battery false alarm (4 → 3 CONFIRMED, 2 right, false alarms on negatives 1 → 0). The shared-model-number case stays wrong and is disclosed; no rule for it could be validated on dev.
 

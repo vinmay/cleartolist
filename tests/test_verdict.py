@@ -34,3 +34,12 @@ def test_code_match_vetoed_by_a_contradicting_brand():
         Verdict.POSSIBLE, None)
     assert decide([["model:4000"], ["model:AB1234"]], [0.5, 0.4], brand_conflict=[True, False]) == (
         Verdict.CONFIRMED, 1)
+
+
+def test_closest_recalls_only_for_children_and_only_when_nothing_triggered():
+    from verify.verdict import show_closest
+
+    assert show_closest(Verdict.NO_MATCH, True, None)
+    assert show_closest(Verdict.NO_MATCH, False, "stroller")
+    assert not show_closest(Verdict.NO_MATCH, False, "kitchen")
+    assert not show_closest(Verdict.POSSIBLE, True, "stroller")

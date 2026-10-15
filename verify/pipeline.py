@@ -25,7 +25,7 @@ from read.gemma import ItemRead, OllamaVision
 from retrieve.exact import brand_conflict
 from retrieve.search import retrieve
 from verify.gemma import recall_context
-from verify.verdict import Verdict, decide, has_code
+from verify.verdict import Verdict, decide, has_code, show_closest
 
 SHORTLIST_K = 3
 DISCLAIMER = ("Screening aid only, not legal advice. 'No match found' means no match in CPSC recalls, "
@@ -59,6 +59,7 @@ class ScanResult:
     matches: list[dict[str, Any]] = field(default_factory=list)  # the shortlist, best first
     text_led: bool = False
     timings: dict[str, float] = field(default_factory=dict)
+    closest: bool = False  # NO MATCH FOUND, but the matches are shown as "closest recalls to check" (not matches)
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -76,6 +77,7 @@ class ScanResult:
             "read": self.read.to_dict() if self.read else None,
             "matches": self.matches,
             "text_led": self.text_led,
+            "closest": self.closest,
             "timings": self.timings,
             "notes": self.notes + [DISCLAIMER],
         }
@@ -112,7 +114,10 @@ def scan(
                     brand_conflict=conflicts)
     if v == Verdict.CONFIRMED and idx:
         matches.insert(0, matches.pop(idx))  # the code-matched recall goes first
-    if v == Verdict.NO_MATCH:
+    top_cat = conn.execute("SELECT category FROM recalls WHERE recall_id=?",
+                           (matches[0]["recall_id"],)).fetchone()[0] if matches else None
+    closest = show_closest(v, bool(res.read and res.read.child_product), top_cat)
+    if v == Verdict.NO_MATCH and not closest:
         matches = []
     notes = []
     if v == Verdict.POSSIBLE:
@@ -121,7 +126,7 @@ def scan(
         notes.append(CAR_SEAT_NOTE)
     t2 = time.perf_counter()
     return ScanResult(v, res.read, matches, res.text_led,
-                      {"retrieve_s": round(t1 - t0, 2), "total_s": round(t2 - t0, 2)}, notes)
+                      {"retrieve_s": round(t1 - t0, 2), "total_s": round(t2 - t0, 2)}, notes, closest)
 
 
 def label_followup(item: dict[str, Any], label: dict[str, Any]) -> dict[str, Any]:

@@ -109,6 +109,7 @@ async def api_batch(photos: list[UploadFile] = File(...)) -> dict[str, Any]:
             rows.append({"file": f.filename, "verdict": "ERROR", "error": e.detail})
             continue
         ms = r["matches"] if r["verdict"] != "NO MATCH FOUND" else []
+        closest = r["matches"] if r["verdict"] == "NO MATCH FOUND" and r.get("closest") else []
         if r["verdict"] == "CONFIRMED":
             ms = ms[:1]
         rows.append({
@@ -116,6 +117,7 @@ async def api_batch(photos: list[UploadFile] = File(...)) -> dict[str, Any]:
             "item": (r["read"] or {}).get("category", ""),
             "recall_title": " | ".join(m["title"] for m in ms),
             "recall_url": " | ".join(m["url"] for m in ms),
+            "closest_to_check": " | ".join(m["title"] for m in closest),
             "seconds": r["timings"]["total_s"],
         })
     order = {"CONFIRMED": 0, "POSSIBLE MATCH": 1, "ERROR": 2, "NO MATCH FOUND": 3}
@@ -127,7 +129,8 @@ async def api_batch(photos: list[UploadFile] = File(...)) -> dict[str, Any]:
 async def api_batch_csv(photos: list[UploadFile] = File(...)) -> StreamingResponse:
     data = await api_batch(photos)
     buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=["file", "verdict", "item", "recall_title", "recall_url", "seconds", "error"])
+    w = csv.DictWriter(buf, fieldnames=["file", "verdict", "item", "recall_title", "recall_url", "closest_to_check",
+                                        "seconds", "error"])
     w.writeheader()
     for r in data["rows"]:
         w.writerow(r)
