@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VISION_MODEL="${CTL_VISION_MODEL:-gemma4:e2b}"
+VISION_MODEL="${CTL_VISION_MODEL:-gemma4:e4b}"
 TEXT_MODEL="${CTL_TEXT_MODEL:-embeddinggemma:300m}"
 
 command -v uv >/dev/null || { echo "Install uv first: https://docs.astral.sh/uv/"; exit 1; }

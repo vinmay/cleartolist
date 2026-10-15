@@ -14,13 +14,14 @@ from PIL import Image
 
 from index.models import OLLAMA_HOST, load_image
 
-VISION_MODEL = os.environ.get("CTL_VISION_MODEL", "gemma4:e2b")
+VISION_MODEL = os.environ.get("CTL_VISION_MODEL", "gemma4:e4b")
 
 READ_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "category": {"type": "string",
-                     "description": "generic product type, e.g. 'infant car seat', 'space heater'"},
+                     "description": "specific item type a shopper would search for, e.g. 'high chair', 'baby lounger', "
+                                    "'sleep sack', 'jogging stroller', 'space heater'; not a department like 'toys'"},
         "brand": {"type": "string", "description": "brand or manufacturer name if visible or recognizable, else ''"},
         "visible_text": {"type": "string", "description": "all legible text on the item or label"},
         "model_number": {"type": "string", "description": "model / item / style number if legible, else ''"},
@@ -32,7 +33,9 @@ READ_SCHEMA: dict[str, Any] = {
 }
 
 READ_PROMPT = """You are helping a secondhand reseller identify an item before listing it.
-Look at the photo and describe the product. Only report brand, model number and UPC if you can actually
+Look at the photo and describe the product. For "category" name the specific kind of item (for example
+"high chair", "bassinet", "baby lounger", "sleep sack", "stroller", "toy car", "dresser", "space heater"),
+never a broad department such as "toys", "electronics" or "baby products". Only report brand, model number and UPC if you can actually
 read them or the brand is unmistakable; never invent them. If not visible, leave the field as "" (nothing).
 Respond with JSON only."""
 
@@ -80,17 +83,26 @@ class OllamaVision:
         if system:
             msgs.append({"role": "system", "content": system})
         msgs.append({"role": "user", "content": prompt, "images": [encode_image(i) for i in images]})
-        r = self.client.post("/api/chat", json={
-            "model": self.model,
-            "messages": msgs,
-            "format": schema,
-            "stream": False,
-            "think": False,
-            "keep_alive": "15m",
-            "options": {"temperature": 0, "num_ctx": 4096},
-        })
-        r.raise_for_status()
-        return json.loads(r.json()["message"]["content"])
+        # Small models occasionally loop inside a string field until the token cap cuts the JSON off;
+        # retry with a little temperature to break the loop.
+        last: Exception | None = None
+        for temperature in (0.0, 0.3, 0.6):
+            r = self.client.post("/api/chat", json={
+                "model": self.model,
+                "messages": msgs,
+                "format": schema,
+                "stream": False,
+                "think": False,
+                "keep_alive": "15m",
+                "options": {"temperature": temperature, "num_ctx": 4096, "num_predict": 600,
+                            "repeat_penalty": 1.15},
+            })
+            r.raise_for_status()
+            try:
+                return json.loads(r.json()["message"]["content"])
+            except json.JSONDecodeError as e:
+                last = e
+        raise ValueError(f"{self.model} returned invalid JSON three times") from last
 
 
 _EMPTY = {"", "empty string", "empty", "none", "unknown", "n/a", "na", "not visible", "not legible", "null", "''"}
