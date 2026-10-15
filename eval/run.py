@@ -24,7 +24,7 @@ from typing import Any
 
 from eval.dataset import WORK
 from index.models import load_image
-from read.gemma import VISION_MODEL, OllamaVision, read_item
+from read.gemma import VISION_MODEL, ItemRead, OllamaVision, read_item
 from retrieve.search import retrieve
 from verify.pipeline import scan
 from verify.verdict import Verdict
@@ -36,11 +36,14 @@ FLAG = {Verdict.CONFIRMED.value, Verdict.LIKELY.value}
 VERIFY_K = 3  # verify the top 3 fused candidates
 
 
-def run_query(q: dict[str, Any], vision: OllamaVision) -> dict[str, Any]:
+def run_query(q: dict[str, Any], vision: OllamaVision, prev: dict[str, Any] | None = None) -> dict[str, Any]:
     img = load_image(q["path"])
-    t = time.perf_counter()
-    item = read_item(img, vision)
-    read_s = time.perf_counter() - t
+    if prev:  # same photo, same Gemma read as an earlier run: only retrieval and verification are re-run
+        item, read_s = ItemRead(**prev["read"]), prev["read_s"]
+    else:
+        t = time.perf_counter()
+        item = read_item(img, vision)
+        read_s = time.perf_counter() - t
     row: dict[str, Any] = {k: q[k] for k in ("path", "label", "recall_id", "category", "run", "source")}
     row["read"] = item.to_dict()
     row["read_s"] = round(read_s, 2)
@@ -166,10 +169,14 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--runs", default="children,mixed,label,owner")
     ap.add_argument("--dev", action="store_true", help="run on the tuning split; results are not written to eval/")
+    ap.add_argument("--reuse-reads", type=Path, help="rows.jsonl of an earlier run whose Gemma reads to reuse")
     a = ap.parse_args()
     global ROWS, OUT_MD, OUT_JSON
     if a.dev:
         ROWS, OUT_MD, OUT_JSON = WORK / "dev_rows.jsonl", WORK / "dev_results.md", WORK / "dev_results.json"
+    prev = {}
+    if a.reuse_reads:
+        prev = {r["path"]: r for r in map(json.loads, a.reuse_reads.read_text().splitlines())}
     queries = json.loads((WORK / ("dev_queries.json" if a.dev else "queries.json")).read_text())
     queries = [q for q in queries if q["run"] in a.runs.split(",")]
     if a.limit:
@@ -186,7 +193,7 @@ def main() -> None:
                 if q["path"] in done:
                     continue
                 try:
-                    r = run_query(q, vision)
+                    r = run_query(q, vision, prev.get(q["path"]))
                 except Exception as e:  # keep going; report the failure count
                     print(f"[{i + 1}/{len(queries)}] {q['path']}: ERROR {e}", file=sys.stderr)
                     continue

@@ -101,7 +101,7 @@ def scan(
         ans = choose(vision, img, [(m["recall_image"], m["_ctx"]) for m in usable], res.read)
         choice = Choice(ans["index"], ans.get("confidence", "low"), ans.get("same_brand", "cannot_tell"),
                         ans.get("model_consistent", "cannot_tell"), ans.get("reason", ""))
-        v, idx = decide(choice, [m["exact"] for m in usable], usable[0]["image_score"])
+        v, idx = decide(choice, [m["exact"] for m in usable], [m["image_score"] for m in usable])
         chosen = usable[idx]["recall_id"] if idx is not None else None
     else:
         v, chosen = (Verdict.UNSURE if matches else Verdict.NO_MATCH), None

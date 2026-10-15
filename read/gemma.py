@@ -57,6 +57,10 @@ class ItemRead:
         parts = [self.brand, self.category, self.description, self.model_number]
         return " ".join(p for p in parts if p).strip()
 
+    def has_text(self) -> bool:
+        """Whether any words were read off the item (brand, codes or other printed text)."""
+        return bool(self.brand or self.model_number or self.upc or self.visible_text.strip())
+
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d.pop("raw")

@@ -37,9 +37,13 @@ def test_no_pick_no_code_is_no_match():
 
 
 def test_no_pick_but_very_similar_photo_is_unsure():
-    assert decide(Choice(None), [[], []], top_image_score=0.85) == (Verdict.UNSURE, 0)
-    assert decide(Choice(None), [[], []], top_image_score=0.7) == (Verdict.NO_MATCH, None)
+    assert decide(Choice(None), [[], []], image_scores=[0.85, 0.6]) == (Verdict.UNSURE, 0)
+    assert decide(Choice(None), [[], []], image_scores=[0.7, 0.6]) == (Verdict.NO_MATCH, None)
+
+
+def test_similarity_fallback_points_at_the_closest_photo_not_the_first_candidate():
+    assert decide(Choice(None), [[], [], []], image_scores=[0.68, 0.84, None]) == (Verdict.UNSURE, 1)
 
 
 def test_similarity_never_overrides_a_contradicting_model_number():
-    assert decide(Choice(0, "high", model_consistent="no"), [[]], top_image_score=0.95) == (Verdict.NO_MATCH, None)
+    assert decide(Choice(0, "high", model_consistent="no"), [[]], image_scores=[0.95]) == (Verdict.NO_MATCH, None)

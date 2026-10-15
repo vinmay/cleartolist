@@ -23,7 +23,9 @@ LIST_DEPTH = 50
 # RRF weight per signal, chosen by what the photo shows. Tuned on the dev split (eval/tune.py), never on the
 # test set: on product photos any weight on the text signal lowered top-3 (Gemma's description of an
 # unbranded item is too generic), so text only votes when the photo is mostly a label or packaging,
-# where the words are the evidence and the shape is not.
+# where the words are the evidence and the shape is not. SigLIP calls many plain product shots "label" or
+# "packaging", so text leads only when Gemma actually read words off the item; with nothing read, a
+# text-led ranking pushed the right image match out of the top 3 (eval error analysis, see eval/results.md).
 FUSION_WEIGHTS: dict[str, dict[str, float]] = {
     "product": {"image": 1.0, "text": 0.0, "brand": 0.5},
     "label": {"image": 0.25, "text": 1.0, "brand": 0.5},
@@ -131,7 +133,8 @@ def retrieve(
                     exact.setdefault(rid, []).append("brand")
 
     if weights is None:
-        weights = FUSION_WEIGHTS["product" if query_kind["kind"] == "product" else "label"]
+        text_led = query_kind["kind"] != "product" and item is not None and item.has_text()
+        weights = FUSION_WEIGHTS["label" if text_led else "product"]
         if "image" not in use:  # text-only ablation: the text signal is all there is
             weights = FUSION_WEIGHTS["label"]
     fused = rrf(lists, weights=weights)

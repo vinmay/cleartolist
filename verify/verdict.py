@@ -37,14 +37,16 @@ def has_code(exact: list[str]) -> bool:
     return any(e.startswith(("model:", "upc:")) for e in exact)
 
 
-def decide(choice: Choice, exact: list[list[str]], top_image_score: float | None = None) -> tuple[Verdict, int | None]:
+def decide(
+    choice: Choice, exact: list[list[str]], image_scores: list[float | None] | None = None
+) -> tuple[Verdict, int | None]:
     """Return (verdict, index of the candidate it refers to).
 
     CONFIRMED  a model number / UPC read from the photo matches a recall, and the verifier picked that recall.
     LIKELY     the verifier picked a recall with high confidence; no visible brand or model contradicts it.
     UNSURE     conflicting or weaker evidence: a code hit the verifier did not pick, a pick with lower
                confidence, a pick whose visible brand differs, or no pick while the closest recall photo is
-               very similar (top_image_score >= UNSURE_IMAGE_SIM). Never presented as a match.
+               very similar (max of image_scores >= UNSURE_IMAGE_SIM). Never presented as a match.
     NO MATCH   no pick and no code hit, or the visible model number is not one of the recalled models.
     """
     coded = [i for i, e in enumerate(exact) if has_code(e)]
@@ -54,8 +56,9 @@ def decide(choice: Choice, exact: list[list[str]], top_image_score: float | None
     if coded and i is None:
         return Verdict.UNSURE, coded[0]  # the label says recalled, the photo comparison disagrees
     if i is None:
-        if top_image_score is not None and top_image_score >= UNSURE_IMAGE_SIM:
-            return Verdict.UNSURE, 0
+        scores = [s if s is not None else -1.0 for s in image_scores or []]
+        if scores and max(scores) >= UNSURE_IMAGE_SIM:
+            return Verdict.UNSURE, scores.index(max(scores))
         return Verdict.NO_MATCH, None
     if choice.model_consistent == "no":
         return Verdict.NO_MATCH, None
