@@ -89,7 +89,7 @@ flowchart LR
 2. On a machine with an NVIDIA GPU (6 GB is enough), do the local setup below, then start the worker with the same secret:
 
 ```bash
-CTL_SERVER_URL=https://<your-service>.onrender.com CTL_WORKER_SECRET=<secret> uv run python -m worker.worker
+scripts/run_worker.sh /path/to/worker.env   # a private file with CTL_SERVER_URL and CTL_WORKER_SECRET
 ```
 
 Render's free tier sleeps after about 15 idle minutes, and **the first request after that can take up to a minute** while it wakes; the page says so while it waits. When no worker is connected, the page shows that scanning is temporarily unavailable and the lookup keeps working.
