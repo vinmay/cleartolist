@@ -41,7 +41,7 @@ DB_URL = os.environ.get(
 )
 GALLERY = ROOT / "gallery"
 WORKER_FRESH_S = 45  # scanning is offered only while the worker has polled this recently
-UNAVAILABLE = "Scanning is temporarily unavailable. Please try again later. The recall lookup still works."
+UNAVAILABLE = "Scanning is temporarily unavailable. Recall lookup still works."
 JOB_ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
 CHILD = ("crib_bassinet_sleeper", "stroller", "high_chair", "play_yard", "toy", "other_child")
 

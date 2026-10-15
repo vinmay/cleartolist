@@ -1,152 +1,237 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const safeUrl = (u) => (/^(https:\/\/|\/gallery\/[a-f0-9]{12}\.jpg$)/.test(String(u || "")) ? esc(u) : "#");
-const cls = (v) => "v-" + ({"NO MATCH FOUND": "NOMATCH", "POSSIBLE MATCH": "POSSIBLE"}[v] || v);
+const safeUrl = (u) => (/^(https:\/\/|\/gallery\/[a-f0-9]{12}\.jpg$)/.test(String(u || "")) ? esc(u) : "");
+const key = (v) => ({"CONFIRMED": "CONFIRMED", "POSSIBLE MATCH": "POSSIBLE", "NO MATCH FOUND": "NOMATCH"}[v] || "NOMATCH");
+const STICKER = {"CONFIRMED": "Recalled", "POSSIBLE MATCH": "Check the label", "NO MATCH FOUND": "No match found"};
+const UNAVAILABLE = "Scanning is temporarily unavailable. Recall lookup still works.";
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let recallCount = 0;
 
-// Free hosting sleeps when idle: if a request is slow, say so instead of looking broken.
-async function api(url, opts = {}) {
-  const t = setTimeout(() => { $("#wake").hidden = false; }, 3000);
+function fmtDate(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ""));
+  if (!m) return "";
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
+// Free hosting sleeps when idle; onSlow lets the caller show the wake-up note in its own place.
+async function api(url, opts = {}, onSlow = () => {}) {
+  const slow = setTimeout(onSlow, 3500);
   const ctrl = new AbortController();
   const kill = setTimeout(() => ctrl.abort(), 90000);
   try {
     const r = await fetch(url, { ...opts, signal: ctrl.signal });
     let body = {};
-    try { body = await r.json(); } catch (e) { /* non-JSON error page */ }
-    if (!r.ok) throw new Error(body.error || "The server couldn't handle that request. Please try again.");
+    try { body = await r.json(); } catch (e) { /* not JSON */ }
+    if (!r.ok) { const err = new Error(body.error || "The server couldn't handle that request. Try again in a minute."); err.status = r.status; throw err; }
     return body;
   } catch (e) {
-    if (e.name === "AbortError") throw new Error("The server took too long to respond. Please try again.");
+    if (e.name === "AbortError") { const err = new Error("The server took too long to answer. Try again in a minute."); err.status = 504; throw err; }
     throw e;
-  } finally {
-    clearTimeout(t); clearTimeout(kill); $("#wake").hidden = true;
-  }
+  } finally { clearTimeout(slow); clearTimeout(kill); }
 }
 
-// --- scan -------------------------------------------------------------------------------------------------
-const HEAD = {
-  "CONFIRMED": ["Recalled: do not list", "A model number or UPC on the item matches a CPSC recall."],
-  "POSSIBLE MATCH": ["Possible match: check the label", "Your item looks similar to these recalled products. That alone doesn't mean it's recalled: the model number on its label decides."],
-  "NO MATCH FOUND": ["No match in CPSC recalls", "This does not mean the item is safe. Recalls without photos or unusual items can be missed."],
-};
+// --- file pickers --------------------------------------------------------------------------------------------
+const urls = {};
+function showPreview(which) {
+  const input = $("#" + which), zone = input.closest(".drop"), img = $(`#${which}Preview`);
+  const f = input.files[0];
+  if (urls[which]) URL.revokeObjectURL(urls[which]);
+  if (!f) { zone.classList.remove("has-file"); img.hidden = true; return; }
+  urls[which] = URL.createObjectURL(f);
+  img.src = urls[which]; img.alt = which === "photo" ? "Your item photo" : "Your label photo"; img.hidden = false;
+  zone.classList.add("has-file");
+  if (which === "photo") clearError();
+}
+function wireDrop(which) {
+  const input = $("#" + which), zone = input.closest(".drop");
+  input.addEventListener("change", () => showPreview(which));
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", (e) => {
+    e.preventDefault(); zone.classList.remove("over");
+    if (!e.dataTransfer.files.length) return;
+    const dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]); input.files = dt.files; showPreview(which);
+  });
+}
+
+// --- errors --------------------------------------------------------------------------------------------------
+function clearError() {
+  $("#formErr").hidden = true; $("#inviteErr").hidden = true; $("#photoErr").hidden = true; $("#invite").removeAttribute("aria-invalid");
+}
+function formError(msg) { const e = $("#formErr"); e.textContent = msg; e.hidden = false; }
+function inviteError(msg) {
+  const e = $("#inviteErr"); e.textContent = msg; e.hidden = false;
+  $("#invite").setAttribute("aria-invalid", "true"); $("#invite").focus();
+}
+
+// --- results -------------------------------------------------------------------------------------------------
+function show(html) {
+  const r = $("#result"); r.innerHTML = html; r.hidden = false;
+  r.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+}
+function loading(wake) {
+  const n = recallCount ? `about ${(Math.round(recallCount / 100) * 100).toLocaleString("en-US")}` : "all the";
+  return `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${n} recalls...</strong></p>
+    <p class="muted">Reading your photo, finding the closest recall photos, and checking any model number. Usually 10 to 30 seconds.</p>
+    ${wake ? `<p class="wake">The free server was asleep and is waking up. The first scan after a quiet spell can take up to a minute.</p>` : ""}</div></div>`;
+}
+function unavailable(msg) {
+  return `<div class="panel notice"><span class="dot" aria-hidden="true"></span><p>${esc(msg || UNAVAILABLE)}</p></div>`;
+}
+function sticker(verdict, small = false, animate = false) {
+  return `<span class="sticker s-${key(verdict)}${small ? " small" : ""}${animate ? " slap" : ""}">${esc(STICKER[verdict])}</span>`;
+}
 function noteText(n, res) {
-  const codes = [res.label_read && res.label_read.model_number, res.label_read && res.label_read.upc].filter(Boolean).join(", ");
+  const lr = res.label_read || {};
+  const codes = [lr.model_number, lr.upc].filter(Boolean).join(", ");
   return {
-    label_ask: "Next: photograph the label (model number, date code or barcode; look under the seat, on the frame or on the base), add it above and check again.",
-    label_no_code: "No model number or UPC could be read on the label. Try a sharper, closer photo, or compare the label with the recall pages by hand.",
-    label_code_unlisted: `Read ${codes || "a code"} on the label. That isn't listed in any CPSC recall in this database. Check the recall pages if the item still looks like one of them.`,
-    label_other_recall: "The label matches a different recall from the photo shortlist; the label is the stronger evidence.",
-    car_seat: "Car seats are regulated by NHTSA, not CPSC, and aren't covered here. Check the seat's label at nhtsa.gov/recalls.",
+    label_no_code: "We couldn't read a model number or UPC on the label. Try a sharper, closer photo of the sticker.",
+    label_code_unlisted: `We read ${codes || "a code"} on the label. It isn't listed in any CPSC recall in our data.`,
+    label_other_recall: "The label matches a different recall from the closest photos. The label is the stronger evidence.",
+    car_seat: "Car seats are regulated by NHTSA, not CPSC, and aren't covered here. Check nhtsa.gov/recalls.",
   }[n] || "";
 }
-let photoUrl = null;
+function recallCard(m, photo) {
+  return `<article class="recall">
+    <div class="pair"><figure><img src="${safeUrl(m.image_urls[0])}" alt="CPSC recall photo"><figcaption>Recall photo</figcaption></figure>
+      <figure><img src="${photo}" alt="Your item photo"><figcaption>Your photo</figcaption></figure></div>
+    <div><h3>${esc(m.title)}</h3>
+      <dl class="facts">
+        ${m.codes && m.codes.length ? `<dt>Matched</dt><dd class="codes">${esc(m.codes.map((c) => c.replace(/^(model|upc):/, (x, k) => (k === "upc" ? "UPC " : "Model "))).join(", "))}</dd>` : ""}
+        <dt>Recalled</dt><dd>${esc(fmtDate(m.date))}</dd>
+        <dt>Hazard</dt><dd>${esc(m.hazards.join(" ") || "See the recall page.")}</dd>
+        <dt>Remedy</dt><dd>${esc(m.remedies.join(" ") || "See the recall page.")}</dd>
+      </dl>
+      <p><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">Read the recall on cpsc.gov</a></p></div>
+  </article>`;
+}
+function strip(recalls, photo) {
+  return `<div class="strip"><figure><img src="${photo}" alt="Your item photo"><figcaption>Your photo</figcaption></figure>
+    ${recalls.map((m) => `<figure><img src="${safeUrl(m.image_urls[0])}" alt="Recall photo"><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></figure>`).join("")}</div>`;
+}
 function renderResult(res, hadLabel) {
-  const [title, sub] = HEAD[res.verdict];
-  let h = `<div class="banner ${cls(res.verdict)}">${esc(title)}<small>${esc(sub)}</small></div>`;
-  if (res.verdict === "CONFIRMED") {
-    const m = res.recalls[0];
-    h += `<div class="result">${m.image_urls[0] ? `<img src="${safeUrl(m.image_urls[0])}" alt="">` : "<div></div>"}
-      <div><h3><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></h3>
-      <div class="meta">Matched: ${esc(m.codes.join(", "))}</div>
-      <div class="meta">Hazard: ${esc(m.hazards.join("; ") || "see recall")}</div>
-      <div class="meta">Remedy: ${esc(m.remedies.join("; ") || "see recall")}</div></div></div>`;
-  }
-  if (res.verdict === "POSSIBLE MATCH") {
-    h += `<div class="short"><figure><img src="${photoUrl}" alt="Your photo"><figcaption class="meta">Your photo</figcaption></figure>
-      ${res.recalls.map((m) => `<figure><img src="${safeUrl(m.image_urls[0])}" alt="Recall photo"><figcaption><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></figcaption></figure>`).join("")}</div>`;
-  }
-  if (res.closest && res.recalls.length) {
-    h += `<div class="closest"><strong>Closest recalls to check</strong> <span class="meta">These are suggestions, not matches: nothing here met the bar for a possible match. If your item is one of these products, check its label against the recall page.</span>
-      <div class="short"><figure><img src="${photoUrl}" alt="Your photo"><figcaption class="meta">Your photo</figcaption></figure>
-      ${res.recalls.map((m) => `<figure><img src="${safeUrl(m.image_urls[0])}" alt="Recall photo"><figcaption><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></figcaption></figure>`).join("")}</div></div>`;
-  }
-  const notes = res.notes.filter((n) => !(n === "label_ask" && hadLabel));
-  if (res.verdict === "POSSIBLE MATCH" && !hadLabel && !notes.includes("label_ask")) notes.unshift("label_ask");
-  h += notes.map((n) => `<p class="meta">${esc(noteText(n, res))}</p>`).join("");
+  const photo = urls.photo || "";
+  const v = res.verdict;
+  const copy = {
+    "CONFIRMED": ["Recalled. Don't list it.", "The model number or UPC on your item matches a CPSC recall."],
+    "POSSIBLE MATCH": ["Check the label.", hadLabel ? "Your item looks like these recalls, but the label didn't settle it. Compare the photos and check the recall pages." : "Your item looks like these recalls. That alone doesn't mean it's recalled."],
+    "NO MATCH FOUND": ["No match found.", "No match in CPSC recalls. This does not mean the item is safe. Check cpsc.gov if unsure."],
+  }[v];
+  const notes = res.notes.map((n) => noteText(n, res)).filter(Boolean);
   const r = res.read || {};
-  h += `<p class="meta">Read from the photo: ${esc([r.category, r.brand, r.model_number, r.upc].filter(Boolean).join(", ") || "nothing legible")}. Scan time ${esc(res.seconds)} s.</p>`;
-  $("#scanOut").innerHTML = h;
+  const read = [r.category, r.brand, r.model_number, r.upc].filter(Boolean).join(", ");
+  let h = `<div class="panel verdict">
+    <div class="shot"><img src="${photo}" alt="Your item photo">${sticker(v, false, true)}</div>
+    <div class="verdict-copy"><h2>${esc(copy[0])}</h2><p>${esc(copy[1])}</p>
+      ${notes.map((n) => `<p>${esc(n)}</p>`).join("")}
+      <p class="muted">Read from your photo: ${esc(read || "nothing legible")}. Scan took ${esc(res.seconds)} seconds.</p>
+      ${v === "POSSIBLE MATCH" && !hadLabel ? `<p><button type="button" class="secondary" id="addLabel">Add a label photo</button></p>` : ""}</div>`;
+  if (v === "CONFIRMED") h += res.recalls.map((m) => recallCard(m, photo)).join("");
+  if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}</div></div>`;
+  if (v === "NO MATCH FOUND" && res.closest && res.recalls.length) {
+    h += `<div class="recall wide"><div class="closest"><h3>Closest recalls to check</h3>
+      <p class="muted">Suggestions, not matches: none of these met the bar for a possible match. If your item is one of these products, check its label against the recall page.</p>
+      ${strip(res.recalls, photo)}</div></div>`;
+  }
+  h += `</div>`;
+  show(h);
+  const add = $("#addLabel");
+  if (add) add.addEventListener("click", () => { $("#label").click(); $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); });
 }
 
 async function runScan(e) {
   e.preventDefault();
+  clearError();
   const photo = $("#photo").files[0], label = $("#label").files[0], invite = $("#invite").value.trim();
-  if (!photo) return;
+  if (!photo) { const e = $("#photoErr"); e.textContent = "Add a photo of the item first."; e.hidden = false; $("#photo").focus(); return; }
+  if (photo.size > 8 * 1024 * 1024 || (label && label.size > 8 * 1024 * 1024)) { formError("That photo is larger than 8 MB. Use a smaller photo or a screenshot of it."); return; }
+  if (!invite) { inviteError("Enter your invite code. Photo scans are invite-only during the beta."); return; }
   try { localStorage.setItem("ctl-invite", invite); } catch (err) { /* storage unavailable */ }
-  if (photoUrl) URL.revokeObjectURL(photoUrl);
-  photoUrl = URL.createObjectURL(photo);
   const fd = new FormData();
-  fd.append("invite", invite);
-  fd.append("photo", photo);
+  fd.append("invite", invite); fd.append("photo", photo);
   if (label) fd.append("label", label);
   $("#scanBtn").disabled = true;
-  $("#scanOut").innerHTML = `<p class="meta"><span class="spinner"></span>Uploading...</p>`;
+  let woke = false;
+  show(loading(false));
+  const onSlow = () => { woke = true; $("#result").innerHTML = loading(true); };
   try {
-    const { job } = await api("/api/jobs", { method: "POST", body: fd });
+    const { job } = await api("/api/jobs", { method: "POST", body: fd }, onSlow);
     const t0 = Date.now();
     while (Date.now() - t0 < 180000) {
       const s = await api(`/api/jobs/${encodeURIComponent(job)}`);
       if (s.state === "done") { renderResult(s.result, Boolean(label)); return; }
-      if (s.state === "unavailable") throw new Error(s.message);
-      $("#scanOut").innerHTML = `<p class="meta"><span class="spinner"></span>${s.state === "queued" ? "Waiting for the scanner..." : "Reading the photo and checking recalls (usually 10-30 s)..."}</p>`;
+      if (s.state === "unavailable") { show(unavailable()); return; }
+      if (!woke) $("#result").innerHTML = loading(false);
       await sleep(2000);
     }
-    throw new Error("Scanning is temporarily unavailable. Please try again later. The recall lookup still works.");
+    show(unavailable());
   } catch (err) {
-    $("#scanOut").innerHTML = `<div class="err">${esc(err.message)}</div>`;
+    $("#result").hidden = true;
+    if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or ask for a new one.");
+    else if (err.status === 503 && /unavailable/i.test(err.message)) show(unavailable());
+    else formError(err.message);
   } finally {
     $("#scanBtn").disabled = false;
   }
 }
 
-// --- lookup -----------------------------------------------------------------------------------------------
+// --- lookup --------------------------------------------------------------------------------------------------
 async function search(q) {
-  $("#out").innerHTML = `<p class="meta">Searching...</p>`;
+  const out = $("#lookupOut");
+  q = q.trim();
+  if (q.length < 2) { out.innerHTML = `<p class="lookup-msg">Type at least two characters.</p>`; return; }
+  out.innerHTML = `<p class="lookup-msg">Searching...</p>`;
   try {
-    const d = await api(`/api/lookup?q=${encodeURIComponent(q)}&children=${$("#kids").checked}`);
-    if (!d.results.length) { $("#out").innerHTML = `<p class="meta">No recalls found for "${esc(q)}". That does not mean the item is safe; try the brand alone, or check cpsc.gov.</p>`; return; }
-    $("#out").innerHTML = d.results.map((x) => `<div class="result">
-      ${x.image_urls[0] ? `<img src="${safeUrl(x.image_urls[0])}" alt="" loading="lazy">` : "<div></div>"}
+    const d = await api(`/api/lookup?q=${encodeURIComponent(q)}&children=${$("#kids").checked}`, {},
+      () => { out.innerHTML = `<p class="lookup-msg">Waking up the free server. This can take up to a minute.</p>`; });
+    if (!d.results.length) { out.innerHTML = `<p class="lookup-msg">No recalls found for "${esc(q)}". That doesn't mean the item is safe. Try the brand alone, or untick children's products only.</p>`; return; }
+    out.innerHTML = d.results.map((x) => `<div class="row">
+      ${x.image_urls[0] ? `<img src="${safeUrl(x.image_urls[0])}" alt="" loading="lazy">` : `<span class="noimg" aria-hidden="true"></span>`}
       <div><h3><a href="${safeUrl(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></h3>
-      <div class="meta">${esc(x.date)} · ${esc(x.hazards.join("; "))}</div>
-      <div class="meta">Remedy: ${esc(x.remedies.join("; ") || "see recall")}</div>
-      <span class="tag">${esc(x.match)}</span><span class="tag">${esc(String(x.category).replaceAll("_", " "))}</span></div></div>`).join("");
-  } catch (e) { $("#out").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+      <p>Recalled ${esc(fmtDate(x.date))}</p><p>${esc(x.hazards.join(" "))}</p></div></div>`).join("");
+  } catch (e) { out.innerHTML = `<p class="lookup-msg">${esc(e.message)}</p>`; }
 }
 
-// --- gallery ----------------------------------------------------------------------------------------------
-function step(title, photo, c) {
-  const thumbs = [`<img src="${safeUrl(photo)}" alt="Scanned photo">`].concat(c.recalls.map((m) => `<img src="${safeUrl(m.image_url)}" alt="Recall photo">`));
-  return `<div class="step"><h4>${esc(title)} <span class="pill ${cls(c.verdict)}">${esc(c.verdict)}</span></h4>
-    <div class="thumbs">${thumbs.join("")}</div>
-    ${c.recalls.map((m) => `<div><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>${m.code ? ` <strong>(${esc(m.code)} matches)</strong>` : ""}</div>`).join("")}
-    <div class="meta">Read: ${esc(c.read_summary || "nothing legible")}</div>${c.note ? `<div class="meta">${esc(c.note)}</div>` : ""}</div>`;
-}
+// --- examples ------------------------------------------------------------------------------------------------
+const OUTCOME = {
+  "confirmed the right recall": "The label confirmed the right recall.",
+  "confirmed a different recall": "The label confirmed a different recall.",
+  "right recall in the shortlist": "The right recall was among the closest recalls shown.",
+  "right recall not in the shortlist": "The right recall wasn't among the closest recalls shown.",
+  "missed": "Missed: the scan didn't show the right recall.",
+};
 async function gallery() {
+  const g = $("#gallery");
   try {
-    const items = await api("/api/gallery");
-    if (!items.length) { $("#gallery").innerHTML = `<p class="meta">No example scans yet.</p>`; return; }
-    const rank = (s) => (String(s.photo_source).startsWith("Selected") ? 0 : s.kind === "pair" ? 1 : 2);
-    items.sort((a, b) => rank(a) - rank(b));
-    $("#gallery").innerHTML = items.filter((s) => s.item).map((s) => {
+    const items = (await api("/api/gallery")).filter((s) => s.item);
+    if (!items.length) { g.innerHTML = `<p class="muted">No example scans yet.</p>`; return; }
+    const selected = (s) => String(s.photo_source).startsWith("Selected");
+    items.sort((a, b) => (selected(b) - selected(a)) || ((b.kind === "pair") - (a.kind === "pair")));
+    g.innerHTML = items.map((s) => {
       const fin = s.final || s.item;
-      return `<div class="scan"><div class="v ${cls(fin.verdict)}">${esc(fin.verdict)}${s.kind === "pair" ? " after the label photo" : ""}</div>
-      ${step(s.kind === "pair" ? "1. Item photo" : "Item photo", s.photo_url, s.item)}
-      ${s.kind === "pair" ? step("2. Label photo", s.label_photo_url, s.final) : ""}
-      <div class="body"><div class="meta">${esc(s.photo_source)}</div>
-      ${s.truth ? `<div class="truth">Photos actually from: <a href="${safeUrl(s.truth.url)}" target="_blank" rel="noopener">${esc(s.truth.title)}</a>. Result: <strong>${esc(s.truth.outcome)}</strong>.</div>` : ""}</div></div>`;
+      const m = fin.recalls[0];
+      return `<article class="example">
+        <div class="shot"><img src="${safeUrl(s.photo_url)}" alt="Item photo">${sticker(fin.verdict, true)}</div>
+        <div>
+          ${s.kind === "pair" ? `<div class="label-thumb"><img src="${safeUrl(s.label_photo_url)}" alt="Label photo"><span>Item photo plus this label photo</span></div>` : ""}
+          <h3>${m ? `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : "No recall shown"}</h3>
+          ${m && m.code ? `<p>Matched ${esc(m.code.replace(/model:/g, "model ").replace(/upc:/g, "UPC "))}</p>` : ""}
+          <p>${esc(s.truth ? OUTCOME[s.truth.outcome] || "" : "")}</p>
+          <p class="kind">${selected(s) ? "Selected example: picked because its label confirmed a recall." : "Random sample from the test photos."} Simulated from held-out CPSC photos.</p>
+        </div></article>`;
     }).join("");
-  } catch (e) { $("#gallery").innerHTML = `<p class="meta">Examples couldn't be loaded.</p>`; }
+  } catch (e) { g.innerHTML = `<p class="muted">Example scans couldn't be loaded.</p>`; }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   try { $("#invite").value = localStorage.getItem("ctl-invite") || ""; } catch (e) { /* storage unavailable */ }
+  wireDrop("photo"); wireDrop("label");
+  $("#invite").addEventListener("input", clearError);
   $("#scanForm").addEventListener("submit", runScan);
-  $("#f").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
-  document.querySelectorAll("[data-q]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); $("#q").value = a.dataset.q; search(a.dataset.q); }));
+  $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
+  document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   gallery();
-  api("/api/meta").then((m) => {
-    if (m.recall_count) $("#meta").textContent = `Recall data: U.S. Consumer Product Safety Commission (saferproducts.gov API). ${m.recall_count} recalls, newest ${m.latest_recall_date}. Refreshed nightly. Not affiliated with or endorsed by CPSC.`;
-  }).catch(() => {});
+  api("/api/meta").then((m) => { recallCount = Number(m.recall_count) || 0; }).catch(() => {});
 });

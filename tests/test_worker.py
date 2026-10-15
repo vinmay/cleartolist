@@ -69,3 +69,11 @@ def test_closest_recalls_are_sent_only_with_no_match():
     assert w["closest"] and w["shortlist"] == [{"recall_id": 7, "codes": ["model:AB1234"]}]
     item = scan("NO MATCH FOUND", [{"recall_id": 7, "exact": []}])
     assert to_wire(item, item, None, 1)["shortlist"] == []
+
+
+def test_scan_result_keeps_notes_and_closest_apart():
+    from verify.pipeline import DISCLAIMER, ScanResult
+    from verify.verdict import Verdict
+
+    d = ScanResult(Verdict.NO_MATCH, None, [], False, {"total_s": 1.0}, ["a note"], True).to_dict()
+    assert d["notes"] == ["a note", DISCLAIMER] and d["closest"] is True

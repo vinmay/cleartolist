@@ -59,8 +59,8 @@ class ScanResult:
     matches: list[dict[str, Any]] = field(default_factory=list)  # the shortlist, best first
     text_led: bool = False
     timings: dict[str, float] = field(default_factory=dict)
-    closest: bool = False  # NO MATCH FOUND, but the matches are shown as "closest recalls to check" (not matches)
     notes: list[str] = field(default_factory=list)
+    closest: bool = False  # NO MATCH FOUND, but the matches are shown as "closest recalls to check" (not matches)
 
     @property
     def top(self) -> dict[str, Any] | None:

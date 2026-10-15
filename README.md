@@ -22,11 +22,11 @@ It's built for children's products first (cribs, bassinets, sleepers, strollers,
 
 **Try it:** <!-- RENDER_URL --> Photo scans need an invite code while the service is small; the recall lookup by model number, UPC, brand or name is open to everyone.
 
-| Two-photo scan: item, then label | Example scans |
-|---|---|
-| ![A scan with an item photo and a label photo: the label's model number matches a recall, so the verdict is CONFIRMED, with the recall photo, hazard and remedy](docs/screenshots/hosted-confirmed.png) | ![Example scans: two-photo pairs and single photos with their verdicts and the recall each photo really came from](docs/screenshots/demo-gallery.png) |
+| The scanner on a phone | Label matches a recall: CONFIRMED | Looks similar: POSSIBLE MATCH |
+|---|---|---|
+| ![The scanner: step 1, a photo of the item; step 2, an optional photo of its label; an invite code; and a Check for recalls button](docs/screenshots/scanner-mobile.png) | ![A red Recalled sticker on the user's photo, with the recall photo, recall date, hazard, remedy and the matched model number](docs/screenshots/result-confirmed.png) | ![An amber Check the label sticker, with the three closest recalls to compare and a prompt to add a label photo](docs/screenshots/result-possible.png) |
 
-<sub>Screenshots show CPSC recall photos (U.S. government works) and simulated scans built from them.</sub>
+<sub>Screenshots show CPSC recall photos (U.S. government works) and simulated scans built from them. The play yard photo in the POSSIBLE MATCH example: "A crib, bassinet and changing table…" by [Famartin](https://commons.wikimedia.org/wiki/File:2022-11-20_23_49_56_A_crib,_bassinet_and_changing_table_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0); that screenshot is shared under the same license. Only the recall's inclined-sleeper accessory was recalled, and only its label could say whether this play yard came with one.</sub>
 
 ## How it works
 
@@ -170,6 +170,7 @@ uv run python -m eval.dataset && uv run python -m eval.run   # full eval (hours 
 - **Gemma 4** (E2B / E4B): Apache 2.0, [license](https://ai.google.dev/gemma/docs/gemma_4_license).
 - **EmbeddingGemma 300M**: [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
 - **SigLIP 2** (`google/siglip2-base-patch16-224`): Apache 2.0.
+- **Archivo** typeface (self-hosted, Latin subset): SIL Open Font License 1.1, see `demo/static/fonts/OFL.txt`.
 - **Eval negatives:** Wikimedia Commons photos under CC0, public domain, CC BY or CC BY-SA. Author, license and source page for each are in [`eval/negatives_manifest.json`](eval/negatives_manifest.json).
 - No third-party code was copied into this repo; dependencies are listed in `pyproject.toml`.
 

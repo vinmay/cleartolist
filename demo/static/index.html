@@ -3,56 +3,105 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ClearToList</title>
+<title>ClearToList: check your haul for recalls</title>
 <meta name="description" content="Check secondhand children's products against U.S. CPSC recalls before you list them.">
+<meta name="theme-color" content="#EEF1F4">
+<link rel="preload" href="/static/fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/app.js" defer></script>
 </head>
 <body>
-<header>
-  <h1>ClearToList</h1>
-  <p class="lede">For resellers: photograph your thrift haul at home, then check each item against U.S. CPSC recalls before you list it. Built for children's products first: cribs, strollers, high chairs, bassinets, sleepers, play yards and toys.</p>
-  <p class="note" id="wake" hidden><span class="spinner"></span>Waking up the server. On free hosting the first request after a quiet period can take up to a minute.</p>
+<a class="skip" href="#scanner">Skip to the scanner</a>
+<header class="site">
+  <a class="brand" href="/" aria-label="ClearToList home"><span class="mark" aria-hidden="true"></span><span class="wordmark">ClearToList</span></a>
+  <a class="gh" href="https://github.com/vinmay/cleartolist">GitHub</a>
 </header>
+
 <main>
-  <h2>Scan a photo</h2>
-  <div class="panel">
-    <form id="scanForm" class="scanform">
-      <div class="row2">
-        <label class="field">Photo of the item
-          <input type="file" id="photo" accept="image/jpeg,image/png,image/webp" required></label>
-        <label class="field">Photo of its label (optional: model number, barcode or date code)
-          <input type="file" id="label" accept="image/jpeg,image/png,image/webp"></label>
-      </div>
-      <div class="row2">
-        <label class="field">Invite code
-          <input type="text" id="invite" autocomplete="off" maxlength="64" required></label>
-        <div class="field"><span>&nbsp;</span><button id="scanBtn">Check recalls</button></div>
-      </div>
-      <p class="privacy"><strong>Your photos:</strong> JPEG, PNG or WebP up to 8 MB. They're re-encoded with all metadata removed (including GPS location), used for this one scan by a self-hosted GPU worker running open models, and deleted as soon as the scan finishes or after two minutes, whichever comes first. The text result is kept for ten minutes so this page can show it. We keep only anonymous counts, never photos.</p>
-    </form>
-    <div id="scanOut"></div>
-  </div>
+  <section class="hero" id="scanner" aria-labelledby="h1">
+    <div class="intro">
+      <h1 id="h1">Check your haul for recalls before you list it.</h1>
+      <p class="lede">Built for children's products first: cribs, bassinets, strollers, high chairs, play yards and toys, matched against every U.S. CPSC recall since 2015.</p>
+    </div>
 
-  <h2>Look up a recall</h2>
-  <div class="panel">
-    <form id="f">
-      <input type="search" id="q" placeholder="Model number, UPC, brand or product (e.g. 'inclined sleeper')" required minlength="2" maxlength="120" aria-label="Search recalls">
-      <button>Search</button>
-      <label class="chk"><input type="checkbox" id="kids" checked> Children's products only</label>
-    </form>
-    <div class="examples">Try: <a href="#" data-q="inclined sleeper">inclined sleeper</a><a href="#" data-q="high chair">high chair</a><a href="#" data-q="bassinet">bassinet</a><a href="#" data-q="play yard mattress">play yard mattress</a></div>
-    <div id="out"></div>
-  </div>
+    <form id="scanForm" class="scanner" novalidate>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-n" aria-hidden="true">1</span>
+          <div class="step-body">
+            <label for="photo" class="step-title">Photo of the item</label>
+            <label class="drop drop-main" id="dropPhoto" for="photo">
+              <input class="sr-only" type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" capture="environment" aria-describedby="photoHint photoErr">
+              <img class="preview" id="photoPreview" alt="" hidden>
+              <span class="drop-text" id="photoText"><strong>Take a photo or choose one</strong><span id="photoHint">The whole item, in good light. JPEG, PNG or WebP up to 8 MB.</span></span>
+            </label>
+            <p class="field-error" id="photoErr" role="alert" hidden></p>
+          </div>
+        </li>
+        <li class="step">
+          <span class="step-n" aria-hidden="true">2</span>
+          <div class="step-body">
+            <label for="label" class="step-title">Photo of its label <span class="optional">(optional, unlocks a confirmed result)</span></label>
+            <label class="drop drop-label" id="dropLabel" for="label">
+              <input class="sr-only" type="file" id="label" name="label" accept="image/jpeg,image/png,image/webp" capture="environment" aria-describedby="labelHint">
+              <img class="preview" id="labelPreview" alt="" hidden>
+              <span class="drop-text" id="labelText"><strong>Add the label</strong><span id="labelHint">A close-up of the model number, barcode or date code.</span></span>
+            </label>
+          </div>
+        </li>
+      </ol>
 
-  <h2>Example scans</h2>
-  <p class="meta" id="galleryNote">Two-photo examples first: the item photo gives a shortlist of the closest recalls, and the label photo settles it by model number. These are simulated from held-out CPSC photos. The first three were selected to show a label confirming a recall and say so on the card; the rest are a random sample, misses included. In the held-out test, an item photo alone showed the right recall for 34% of 150 children's-product photos (it was in the top-3 shortlist for 67%, but a shortlist is only shown when the match is very close); the label photo is what makes a verdict reliable, since CONFIRMED only fires on a model-number or UPC match (details in the <a href="https://github.com/vinmay/cleartolist#evaluation">evaluation</a>).</p>
-  <div class="grid" id="gallery"></div>
+      <div class="invite">
+        <label for="invite">Invite code</label>
+        <input type="text" id="invite" name="invite" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" aria-describedby="inviteHint inviteErr">
+        <p class="hint" id="inviteHint">Photo scans are invite-only during the beta. Recall lookup is open to everyone.</p>
+        <p class="field-error" id="inviteErr" hidden></p>
+      </div>
+
+      <div class="submit-row">
+        <button type="submit" class="primary" id="scanBtn">Check for recalls</button>
+        <p class="privacy">Photos are deleted after the scan. Location data is stripped.</p>
+      </div>
+      <details class="policy">
+        <summary>How we handle photos</summary>
+        <p>Your photos are checked to be real JPEG, PNG or WebP images, then re-encoded, which removes all metadata, including GPS location. They're used for this one scan by a self-hosted GPU worker running open models, kept in memory only, and deleted as soon as the scan finishes or after two minutes, whichever comes first. The text result is kept for ten minutes so this page can show it. We keep anonymous counts of scans, never photos, filenames or addresses.</p>
+      </details>
+      <p class="form-error" id="formErr" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <section class="result" id="result" aria-live="polite" hidden></section>
+
+  <section class="lookup" aria-labelledby="lookupH">
+    <h2 id="lookupH">Look up a recall</h2>
+    <p class="section-lede">Search by model number, UPC, brand or product name.</p>
+    <form id="lookupForm" class="lookup-form" role="search">
+      <label for="q" class="sr-only">Search recalls</label>
+      <input type="search" id="q" name="q" placeholder="Model, UPC, brand or name" minlength="2" maxlength="120" required>
+      <button type="submit" class="secondary">Search</button>
+    </form>
+    <div class="chips" aria-label="Example searches">
+      <button type="button" class="chip" data-q="inclined sleeper">Inclined sleeper</button>
+      <button type="button" class="chip" data-q="high chair">High chair</button>
+      <button type="button" class="chip" data-q="bassinet">Bassinet</button>
+      <button type="button" class="chip" data-q="play yard mattress">Play yard mattress</button>
+    </div>
+    <label class="check"><input type="checkbox" id="kids" checked> Children's products only</label>
+    <div id="lookupOut" class="lookup-out" aria-live="polite"></div>
+  </section>
+
+  <section class="examples" aria-labelledby="exH">
+    <h2 id="exH">Example scans</h2>
+    <p class="section-lede">In our held-out test, an item photo alone showed the right recall for about a third of children's products, and nearly two-thirds once the closest recalls are listed as suggestions. A matching label confirmed the right recall 4 times out of 5. <a href="https://github.com/vinmay/cleartolist#evaluation">How we measured this</a></p>
+    <div id="gallery" class="gallery"></div>
+  </section>
 </main>
-<footer>
-  <p><strong>Screening aid only, not legal advice.</strong> "No match" means no match in CPSC recalls, not that the item is safe. Always confirm at <a href="https://www.cpsc.gov/Recalls">cpsc.gov</a>. Car seats are regulated by NHTSA and not covered: check <a href="https://www.nhtsa.gov/recalls">nhtsa.gov/recalls</a>.</p>
-  <p id="meta">Recall data: U.S. Consumer Product Safety Commission (saferproducts.gov API), refreshed nightly. Not affiliated with or endorsed by CPSC.</p>
-  <p>Open source: <a href="https://github.com/vinmay/cleartolist">github.com/vinmay/cleartolist</a>. You can also run the whole scanner on your own computer.</p>
+
+<footer class="site">
+  <p>Recall data from the U.S. Consumer Product Safety Commission. Not affiliated with or endorsed by CPSC.</p>
+  <p>Car seats are regulated by NHTSA and aren't covered here: check <a href="https://www.nhtsa.gov/recalls">nhtsa.gov/recalls</a>.</p>
+  <p>Screening aid only, not legal advice.</p>
+  <p><a href="https://github.com/vinmay/cleartolist">Source on GitHub</a></p>
 </footer>
 </body>
 </html>
