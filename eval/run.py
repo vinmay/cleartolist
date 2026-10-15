@@ -247,7 +247,9 @@ def main() -> None:
 
     meta = {"generated": time.strftime("%Y-%m-%d"), "vision_model": VISION_MODEL, "image_model": DEFAULT_IMAGE_MODEL,
             "text_model": DEFAULT_TEXT_MODEL,
-            "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU",
+            # Benchmark hardware is described generically on purpose (no device names in published results).
+            "gpu": f"a {round(torch.cuda.get_device_properties(0).total_memory / 2**30)} GB consumer GPU"
+            if torch.cuda.is_available() else "CPU",
             "gate_image_sim": POSSIBLE_IMAGE_SIM, "gate_text_led": POSSIBLE_IF_TEXT_LED,
             "n_queries": len(queries), "n_completed": len(rows),
             "title": " (dev split)" if a.dev else ": Run 3"}
