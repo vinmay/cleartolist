@@ -262,3 +262,10 @@ def test_closest_recalls_render_as_suggestions_without_codes(client):
     run_worker(client, {"verdict": "NO MATCH FOUND", "shortlist": [{"recall_id": 101, "codes": []}]})
     res = client.get(f"/api/jobs/{job}").json()["result"]
     assert res["closest"] is False and res["recalls"] == []
+
+
+def test_secrets_pasted_with_whitespace_or_quotes_still_work(client, monkeypatch):
+    monkeypatch.setenv("CTL_WORKER_SECRET", f' "{WORKER}"\n')
+    assert signed(client, "POST", "/worker/claim").status_code == 204
+    monkeypatch.setenv("CTL_INVITE_CODES", f" '{INVITE}' ")
+    assert submit(client).status_code == 202

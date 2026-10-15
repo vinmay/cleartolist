@@ -81,6 +81,12 @@ POLL_LIMIT = security.RateLimiter(120, 60)  # result polling
 
 # --- configuration (read per request, so the kill switch needs no redeploy of code) -------------------------
 
+def env_secret(name: str) -> str | None:
+    """A secret from the environment, ignoring whitespace or quotes picked up when pasting it into a dashboard."""
+    v = os.environ.get(name)
+    return v.strip().strip("'\"").strip() if v else v
+
+
 def env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
 
@@ -93,7 +99,8 @@ def uploads_enabled() -> bool:
 
 
 def invite_codes() -> list[str]:
-    return [c.strip() for c in os.environ.get("CTL_INVITE_CODES", "").split(",") if len(c.strip()) >= 6]
+    return [c.strip().strip("'\"") for c in (env_secret("CTL_INVITE_CODES") or "").split(",")
+            if len(c.strip().strip("'\"")) >= 6]
 
 
 def worker_alive(now: float | None = None) -> bool:
@@ -311,7 +318,7 @@ def job_status(request: Request, job_id: str) -> dict[str, Any]:
 async def require_worker(request: Request) -> bytes:
     body = await request.body()
     if len(body) > 64_000 or not security.verify(
-            os.environ.get("CTL_WORKER_SECRET"), request.method, request.url.path, body,
+            env_secret("CTL_WORKER_SECRET"), request.method, request.url.path, body,
             {k.lower(): v for k, v in request.headers.items()}, NONCES):
         raise HTTPException(401, "Unauthorized.")
     return body
@@ -426,7 +433,7 @@ async def worker_fail(request: Request, job_id: str) -> dict[str, bool]:
 @app.post("/admin/uploads")
 async def admin_uploads(request: Request) -> dict[str, Any]:
     body = await request.body()
-    if not security.verify(os.environ.get("CTL_ADMIN_SECRET"), request.method, request.url.path, body,
+    if not security.verify(env_secret("CTL_ADMIN_SECRET"), request.method, request.url.path, body,
                            {k.lower(): v for k, v in request.headers.items()}, NONCES):
         raise HTTPException(401, "Unauthorized.")
     try:
