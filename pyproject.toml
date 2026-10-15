@@ -19,7 +19,10 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "matplotlib>=3.9",
+    "pytest>=8",
+]
 
 [tool.uv]
 package = false
