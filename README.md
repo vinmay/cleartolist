@@ -62,7 +62,34 @@ Keep it fresh with `./scripts/refresh.sh` (new recalls, then incremental re-inde
 
 ## Evaluation
 
-<!-- EVAL_SUMMARY -->
+Held-out test on a 6 GB consumer GPU. Each positive is a CPSC recall photo with simulated phone-photo degradation; that photo and every copy or near-duplicate of it (SigLIP 2 cosine ≥ 0.95) are removed from the index for that query, so a query can only match through *other* photos of the same recall. Negatives are licensed, same-category, non-recall product photos from Wikimedia Commons (manifest: [`eval/negatives_manifest.json`](eval/negatives_manifest.json)). Tuning used a separate dev split. Full tables: [`eval/results.md`](eval/results.md).
+
+![Correct recall in the top 3: image only, text only, fused](eval/ablation.png)
+
+| | Children's products (headline) | Other CPSC categories | Label close-ups (children's) |
+|---|---|---|---|
+| positives / negatives | 150 / 42 | 180 / 84 | 40 / 0 |
+| image only, top-3 | 69% | 59% | 18% |
+| text only (Gemma read), top-3 | 27% | 39% | 55% |
+| fused, top-3 | 67% | 64% | 55% |
+| LIKELY precision | 51% (n=61) | 55% (n=67) | 75% (n=16) |
+| CONFIRMED (model/UPC read and matched) | 0 | 4, 3 right | 2, 2 right |
+| positives flagged with the right recall | 21% | 22% | 35% |
+| false alarms on lookalikes (CONFIRMED or LIKELY) | 31% | 10% | n/a |
+| median scan time | 28 s | 30 s | 31 s |
+
+What this says, plainly:
+
+- **Retrieval is the solid part.** Two times in three, the right recall is in the top 3 for a children's product, from the photo alone. That's the number the kill criterion applied to: the spike passed at 71% (n=90); the larger test lands at 69%.
+- **Generic-looking products depend on label reading.** Image top-3 is 45% for cribs, bassinets and sleepers and 40% for furniture: one white crib looks like another. On label close-ups, image search gets 18% but Gemma's read gets 55%. So photograph the label too; the app asks for a label photo when a match is unsure.
+- **The verifier is the weak part.** Gemma 4 E4B, shown the seller's photo next to the top 3 recall photos, often declines to pick and is right about half the time when it says LIKELY; on stroller and crib lookalikes it raises too many false alarms. That's why LIKELY means "check the recall page", never "this is recalled", and why the app always shows the recall photo next to yours.
+- **CONFIRMED is rare and accurate** (5 of 6): it needs a model number or UPC read off the item that matches a recall.
+
+Limits: positives are official product photos degraded to look like phone shots, not real thrift-store photos; Commons negatives aren't verified non-recalled; play yard (1 positive) and high chair (13) are too small to read anything into.
+
+**One correction, disclosed.** The numbers above are a post-hoc run. The frozen test run ([`eval/results_frozen.md`](eval/results_frozen.md)) came first and had fused top-3 at 62% for children's products. Error analysis on it found two bugs: text-led fusion on photos where Gemma read no words, and an UNSURE fallback that looked only at the first candidate. They were fixed in a29e5ac and the same queries re-run with the same Gemma reads. The fixes were found on the test set, so read the gap between the two runs as optimistic.
+
+**Fine-tuning (Tinker) was not attempted:** the stretch condition was borderline (69% vs a ~70% bar) and Tinker's published model list doesn't include Gemma.
 
 ## Why open models
 
