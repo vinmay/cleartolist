@@ -11,7 +11,8 @@
    "title": "File:2022-11-20 23 49 56 A crib, bassinet and changing table in the Mountainview section of Ewing Township, Mercer County, New Jersey.jpg",
    "author": "Famartin",
    "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "audit": "Kept: Graco Pack 'n Play with bassinet. CPSC recall 8968 covers only the inclined sleeper accessory; the playard and bassinet are not recalled, and no inclined sleeper is visible."
   },
   {
    "file": "crib_bassinet_sleeper__001.jpg",
@@ -44,7 +45,8 @@
    "title": "File:2022-11-20 23 50 26 A crib, bassinet and changing table in the Mountainview section of Ewing Township, Mercer County, New Jersey.jpg",
    "author": "Famartin",
    "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "audit": "Kept: same Graco Pack 'n Play as __000; see that note."
   },
   {
    "file": "crib_bassinet_sleeper__004.jpg",
@@ -231,7 +233,9 @@
    "title": "File:Baby-Dump, Groningen (2018) 03.jpg",
    "author": "Donald Trung",
    "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "audit": "Removed: store window showing a Nuna high chair; Nuna ZAAZ high chairs are recalled (CPSC recall 6654) and the model can't be ruled out from the photo.",
+   "excluded": true
   },
   {
    "file": "high_chair__021.jpg",
@@ -660,7 +664,8 @@
    "title": "File:Space heater.jpg",
    "author": "Hardyplants",
    "license": "CC0",
-   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "audit": "Kept: Sunbeam quartz heater; recall 1900 covers Holmes oil-filled heaters HOH3000."
   },
   {
    "file": "heating_cooling__060.jpg",
@@ -814,7 +819,9 @@
    "title": "File:Rival Kettle.jpg",
    "author": "Jugo Yokomizo",
    "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "audit": "Removed: a Rival white electric kettle with a water-level window, the design recalled in CPSC recall 6718 (Rival WK8283CU/WK8283CUY). Likely covered.",
+   "excluded": true
   },
   {
    "file": "kitchen__074.jpg",
@@ -1056,7 +1063,8 @@
    "title": "File:Black & Decker Cordless 20V Drill.jpg",
    "author": "TaurusEmerald",
    "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "audit": "Kept: Black+Decker 20V cordless drill; recall 8445 covers side handles of the corded DR560."
   },
   {
    "file": "tools_outdoor__096.jpg",
@@ -1067,7 +1075,8 @@
    "title": "File:Black and Decker 20-Volt Power Drill (49112921413).jpg",
    "author": "Tony Webster from Laramie, Wyoming, United States",
    "license": "CC BY 2.0",
-   "license_url": "https://creativecommons.org/licenses/by/2.0"
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "audit": "Kept: Black+Decker 20V cordless drill; recall 8445 covers side handles of the corded DR560."
   },
   {
    "file": "tools_outdoor__097.jpg",
@@ -1078,7 +1087,8 @@
    "title": "File:Black and Decker Matrix Lithium 20v Cordless Drill (41159305895).jpg",
    "author": "Tony Webster from Minneapolis, Minnesota, United States",
    "license": "CC BY 2.0",
-   "license_url": "https://creativecommons.org/licenses/by/2.0"
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "audit": "Kept: Black+Decker cordless drill; recall 8445 covers side handles of the corded DR560."
   },
   {
    "file": "tools_outdoor__098.jpg",
@@ -1111,7 +1121,8 @@
    "title": "File:Cordless Drill (8559707469).jpg",
    "author": "HomeSpot HQ",
    "license": "CC BY 2.0",
-   "license_url": "https://creativecommons.org/licenses/by/2.0"
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "audit": "Kept: cordless drill; recall 8484 covers the corded DeWALT DWD110/DWD112."
   },
   {
    "file": "tools_outdoor__101.jpg",
@@ -1166,7 +1177,8 @@
    "title": "File:Abus, Cyclingworld Europe 2024, Meerbusch (P1180004).jpg",
    "author": "Matti Blume",
    "license": "CC BY-SA 4.0",
-   "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+   "audit": "Kept: ABUS road helmet; recall 9170 covers ABUS ACM (MountZ) youth helmets."
   },
   {
    "file": "sports_rec__106.jpg",
@@ -1388,5 +1400,6 @@
    "license": "CC BY 2.0",
    "license_url": "https://creativecommons.org/licenses/by/2.0"
   }
- ]
+ ],
+ "audit_note": "2026-10-15 audit, applied to all 126 negatives the same way: every brand read by Gemma or named in the Commons title was looked up in the recall database, and each same-brand, same-product-type pair was compared visually with the recall photos and description. 2 removed (excluded: true), 8 checked and kept (see 'audit'). Unbranded photos can't be checked this way, so the set is still not verified non-recalled."
 }

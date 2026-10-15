@@ -31,9 +31,16 @@ header p { margin: 4px 0 0; color: var(--muted); }
 .banner { border-radius: 12px; padding: 20px; margin-top: 16px; font-size: 24px; font-weight: 700; }
 .banner small { display: block; font-size: 15px; font-weight: 400; margin-top: 4px; }
 .v-CONFIRMED { background: var(--red-bg); color: var(--red); }
-.v-LIKELY { background: var(--amber-bg); color: var(--amber); }
-.v-UNSURE { background: var(--grey-bg); color: var(--grey); }
-.v-NOMATCH { background: var(--green-bg); color: var(--green); }
+.v-POSSIBLE { background: var(--amber-bg); color: var(--amber); }
+.v-NOMATCH, .v-ERROR { background: var(--grey-bg); color: var(--grey); }
+.short { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+.short figure { margin: 0; font-size: 13px; }
+.short img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); border-radius: 8px; }
+.short figcaption { margin-top: 4px; }
+.short .you figcaption { color: var(--muted); }
+.steps { display: flex; gap: 8px; margin-top: 16px; font-size: 14px; color: var(--muted); }
+.steps span { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); }
+.steps span.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .pair figure { margin: 0; }
 .pair img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--grey-bg); border-radius: 8px; }
@@ -52,7 +59,7 @@ th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); v
 @keyframes spin { to { transform: rotate(360deg); } }
 footer { color: var(--muted); font-size: 14px; }
 a { color: var(--accent); }
-@media (max-width: 600px) { .pair { grid-template-columns: 1fr; } .kv { grid-template-columns: 1fr; } .banner { font-size: 20px; } }
+@media (max-width: 600px) { .short { grid-template-columns: 1fr 1fr; } .pair { grid-template-columns: 1fr; } .kv { grid-template-columns: 1fr; } .banner { font-size: 20px; } }
 </style>
 </head>
 <body>
@@ -94,73 +101,82 @@ a { color: var(--accent); }
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const cls = (v) => "v-" + (v === "NO MATCH FOUND" ? "NOMATCH" : v);
+const cls = (v) => "v-" + ({"NO MATCH FOUND": "NOMATCH", "POSSIBLE MATCH": "POSSIBLE"}[v] || v);
 const HEAD = {
   "CONFIRMED": ["Recalled: do not list", "A model number or UPC on the item matches a CPSC recall."],
-  "LIKELY": ["Likely recalled: check the label", "Gemma judged your item the same design as this recalled product, but no model number was readable. Compare the photos and photograph the label to confirm."],
-  "UNSURE": ["Unsure: check before listing", "Weak or conflicting evidence. Compare with the recall below and look for a model number."],
-  "NO MATCH FOUND": ["No match in CPSC recalls", "This does not mean the item is safe. Recalls without photos or unusual items can be missed."],
+  "POSSIBLE MATCH": ["Possible match: check the label", "Your item looks similar to these recalled products. That alone doesn't mean it's recalled: the model number on its label decides."],
+  "NO MATCH FOUND": ["No match in CPSC recalls", "This does not mean the item is safe. Recalls without photos or unusual items can be missed. If the item has a label, scanning it is still worth it."],
 };
+let itemResult = null, itemFile = null;
 
-document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
-  document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b));
-  $("#single").hidden = b.dataset.tab !== "single";
-  $("#batch").hidden = b.dataset.tab !== "batch";
-});
-
-function wireDrop(drop, input, cb) {
-  input.onchange = () => input.files.length && cb([...input.files]);
-  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
-  drop.ondragleave = () => drop.classList.remove("over");
-  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); cb([...e.dataTransfer.files]); };
+function steps(n) {
+  return `<div class="steps"><span class="${n === 1 ? "on" : ""}">1. Item photo</span><span class="${n === 2 ? "on" : ""}">2. Label photo</span></div>`;
 }
 
-async function post(url, files, field) {
-  const fd = new FormData();
-  files.forEach((f) => fd.append(field, f));
-  const r = await fetch(url, { method: "POST", body: fd });
-  if (!r.ok) throw new Error(await r.text());
-  return r;
+function recallCard(m, photoUrl, photoCaption) {
+  const code = (m.exact || []).filter((e) => e.startsWith("model:") || e.startsWith("upc:"));
+  return `<div class="panel card"><h3><a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></h3>
+    <div class="pair"><figure><img src="${photoUrl}" alt="${esc(photoCaption)}"><figcaption>${esc(photoCaption)}</figcaption></figure>
+    <figure><img src="${esc(m.recall_image_url || "")}" alt="Recall photo"><figcaption>CPSC recall photo</figcaption></figure></div>
+    <dl class="kv" style="margin-top:12px"><dt>Matched</dt><dd class="chips">${code.map((e) => `<span>${esc(e)}</span>`).join("")}</dd>
+    <dt>Hazard</dt><dd>${esc(m.hazards.join("; ") || "see recall")}</dd>
+    <dt>Remedy</dt><dd>${esc(m.remedies.join("; ") || "see recall")}</dd></dl></div>`;
 }
 
-function renderScan(r, file) {
-  const [title, sub] = HEAD[r.verdict];
-  const flagged = r.verdict !== "NO MATCH FOUND";
-  const m = r.matches[0];
-  let html = `<div class="banner ${cls(r.verdict)}">${esc(title)}<small>${esc(sub)}</small></div>`;
-  if (m && flagged) {
-    html += `<div class="panel card"><h3><a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></h3>
-      <div class="pair"><figure><img src="${URL.createObjectURL(file)}" alt="Your photo"><figcaption>Your photo</figcaption></figure>
-      <figure><img src="${esc(m.recall_image_url || "")}" alt="Recall photo"><figcaption>CPSC recall photo</figcaption></figure></div>
-      <dl class="kv" style="margin-top:12px"><dt>Hazard</dt><dd>${esc(m.hazards.join("; ") || "see recall")}</dd>
-      <dt>Remedy</dt><dd>${esc(m.remedies.join("; ") || "see recall")}</dd>
-      <dt>Evidence</dt><dd class="chips">${(m.exact || []).map((e) => `<span>${esc(e)}</span>`).join("")}${Object.keys(m.sources || {}).map((s) => `<span>${esc(s)} #${m.sources[s]}</span>`).join("")}</dd>
-      ${r.verifier && r.verifier.reason ? `<dt>Gemma says</dt><dd>${esc(r.verifier.reason)}</dd>` : ""}</dl></div>`;
-  }
-  if (r.verdict === "LIKELY" || r.verdict === "UNSURE") {
-    html += `<div class="panel"><strong>Next step: photograph the label.</strong> Look for a sticker with a model number, date code or barcode (under the seat, on the frame, on the base), then scan that photo.
-      <div style="margin-top:8px"><label class="btn">Scan label photo<input type="file" accept="image/*" hidden id="labelIn"></label></div></div>`;
-  }
+function shortlist(r, photoUrl) {
+  return `<div class="panel"><strong>Closest recalls</strong> <span class="muted">(compare shape and details; colours and prints vary)</span>
+    <div class="short"><figure class="you"><img src="${photoUrl}" alt="Your photo"><figcaption>Your photo</figcaption></figure>
+    ${r.matches.map((m) => `<figure><img src="${esc(m.recall_image_url || "")}" alt="Recall photo"><figcaption><a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a><br><span class="muted">Models: ${esc(m.models || "not listed")}</span></figcaption></figure>`).join("")}</div></div>`;
+}
+
+function labelAsk() {
+  return `<div class="panel"><strong>Next: photograph the label.</strong> Look for a sticker with a model number, date code or barcode (under the seat, on the frame, on the base), then scan that photo.
+    <div style="margin-top:8px"><label class="btn">Scan label photo<input type="file" accept="image/*" hidden id="labelIn"></label></div></div>`;
+}
+
+function details(r) {
   const read = r.read || {};
-  html += `<details class="panel"><summary>What Gemma read and the other candidates</summary>
+  return `<details class="panel"><summary>What Gemma read</summary>
     <dl class="kv" style="margin-top:8px"><dt>Item</dt><dd>${esc(read.category)}</dd><dt>Brand</dt><dd>${esc(read.brand || "not visible")}</dd>
-    <dt>Model no.</dt><dd>${esc(read.model_number || "not visible")}</dd><dt>Time</dt><dd>${esc(r.timings.total_s)} s${r.cached ? " (cached result from an earlier scan of this exact photo)" : ""}</dd></dl>
-    <table style="margin-top:8px"><tr><th>Candidate</th><th>Verdict</th></tr>
-    ${r.matches.map((x) => `<tr><td><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></td><td><span class="pill ${cls(x.verdict || "UNSURE")}">${esc(x.verdict || "")}</span></td></tr>`).join("")}</table></details>`;
+    <dt>Model no.</dt><dd>${esc(read.model_number || "not visible")}</dd><dt>UPC</dt><dd>${esc(read.upc || "not visible")}</dd>
+    <dt>Time</dt><dd>${esc(r.timings.total_s)} s${r.cached ? " (cached result from an earlier scan of this exact photo)" : ""}</dd></dl></details>`;
+}
+
+function render(r, step, photoUrl, caption) {
+  const [title, sub] = HEAD[r.verdict];
+  let html = steps(step) + `<div class="banner ${cls(r.verdict)}">${esc(title)}<small>${esc(sub)}</small></div>`;
+  if (r.verdict === "CONFIRMED") html += recallCard(r.matches[0], photoUrl, caption);
+  if (r.verdict === "POSSIBLE MATCH") html += shortlist(r, URL.createObjectURL(itemFile));
   html += r.notes.filter((n) => !n.startsWith("Screening") && !n.startsWith("Photograph the label")).map((n) => `<p class="muted">${esc(n)}</p>`).join("");
+  if (r.verdict !== "CONFIRMED") html += labelAsk();
+  html += details(r);
   $("#result").innerHTML = html;
   const li = $("#labelIn");
-  if (li) li.onchange = () => li.files.length && runScan([li.files[0]]);
+  if (li) li.onchange = () => li.files.length && runLabel(li.files[0]);
 }
 
 async function runScan(files) {
-  const f = files[0];
-  $("#result").innerHTML = `<div class="panel"><span class="spinner"></span>Reading the photo and checking recalls... (about 15-40 s on a mid-range GPU)</div>`;
+  itemFile = files[0];
+  $("#result").innerHTML = `${steps(1)}<div class="panel"><span class="spinner"></span>Reading the photo and checking recalls... (about 15-30 s on a mid-range GPU)</div>`;
   try {
-    const r = await (await post("/api/scan", [f], "photo")).json();
-    renderScan(r, f);
+    itemResult = await (await post("/api/scan", [itemFile], "photo")).json();
+    render(itemResult, 1, URL.createObjectURL(itemFile), "Your photo");
   } catch (e) {
     $("#result").innerHTML = `<div class="panel">Scan failed: ${esc(e.message)}</div>`;
+  }
+}
+
+async function runLabel(file) {
+  $("#result").insertAdjacentHTML("afterbegin", `<div class="panel"><span class="spinner"></span>Reading the label...</div>`);
+  try {
+    const fd = new FormData();
+    fd.append("photo", file);
+    fd.append("item", JSON.stringify(itemResult || {}));
+    const r = await fetch("/api/label", { method: "POST", body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    render(await r.json(), 2, URL.createObjectURL(file), "Your label photo");
+  } catch (e) {
+    $("#result").innerHTML = `<div class="panel">Label scan failed: ${esc(e.message)}</div>`;
   }
 }
 
@@ -171,10 +187,11 @@ async function runBatch(files) {
   $("#batchResult").innerHTML = `<div class="panel"><span class="spinner"></span>Checking ${files.length} photos... this takes a while; leave the tab open.</div>`;
   try {
     const d = await (await post("/api/batch", files, "photos")).json();
-    const flagged = d.rows.filter((r) => r.verdict === "CONFIRMED" || r.verdict === "LIKELY").length;
-    $("#batchResult").innerHTML = `<div class="panel"><strong>${flagged} of ${d.rows.length} items to pull or check before listing.</strong>
+    const pull = d.rows.filter((r) => r.verdict === "CONFIRMED").length;
+    const check = d.rows.filter((r) => r.verdict === "POSSIBLE MATCH").length;
+    $("#batchResult").innerHTML = `<div class="panel"><strong>${pull} of ${d.rows.length} items to pull (recalled). ${check} to check: photograph their labels and scan them one by one.</strong>
       <table style="margin-top:8px"><tr><th>Photo</th><th>Verdict</th><th>Item</th><th>Recall</th></tr>
-      ${d.rows.map((r) => `<tr><td>${esc(r.file)}</td><td><span class="pill ${cls(r.verdict === "ERROR" ? "UNSURE" : r.verdict)}">${esc(r.verdict)}</span></td><td>${esc(r.item)}</td><td>${r.recall_url ? `<a href="${esc(r.recall_url)}" target="_blank" rel="noopener">${esc(r.recall_title)}</a>` : ""}</td></tr>`).join("")}
+      ${d.rows.map((r) => `<tr><td>${esc(r.file)}</td><td><span class="pill ${cls(r.verdict)}">${esc(r.verdict)}</span></td><td>${esc(r.item)}</td><td>${r.recall_url ? r.recall_url.split(" | ").map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(r.recall_title.split(" | ")[i])}</a>`).join("<br>") : ""}</td></tr>`).join("")}
       </table><p class="muted">${esc(d.disclaimer)}</p></div>`;
     $("#csv").disabled = false;
   } catch (e) {

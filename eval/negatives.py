@@ -13,6 +13,7 @@ We cannot prove that a Commons photo does not show a recalled model; the manifes
 this, and the false-alarm numbers should be read with it in mind.
 
     uv run python -m eval.negatives --per-category 12
+    uv run python -m eval.negatives --dev --per-category 6   # disjoint set for the dev split
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from read.gemma import OllamaVision
 
 NEG_DIR = Path("data/negatives")
 MANIFEST = Path("eval/negatives_manifest.json")
+DEV_MANIFEST = Path("eval/negatives_dev_manifest.json")
 API = "https://commons.wikimedia.org/w/api.php"
 UA = "ClearToList-eval/0.1 (https://github.com/vinmay/cleartolist; research eval set)"
 OK_LICENSES = re.compile(r"^(CC0|Public domain|PD|CC BY(-SA)? [1-4]\.0)", re.I)
@@ -104,7 +106,9 @@ def clean(html: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--per-category", type=int, default=12)
+    ap.add_argument("--dev", action="store_true", help="fetch a disjoint set for the dev split")
     a = ap.parse_args()
+    out_manifest, prefix = (DEV_MANIFEST, "dev_") if a.dev else (MANIFEST, "")
     emb = image_embedder()
     vision = OllamaVision()
     store = VectorStore.load(image_store_path())
@@ -123,6 +127,8 @@ def main() -> None:
     NEG_DIR.mkdir(parents=True, exist_ok=True)
     manifest: list[dict] = []
     seen: set[str] = set()
+    if a.dev:  # never reuse a test negative
+        seen = {it["title"] for it in json.loads(MANIFEST.read_text())["items"]}
     client = httpx.Client(headers={"User-Agent": UA}, timeout=60, follow_redirects=True)
     for li, (cat, (terms, _)) in enumerate(QUERIES.items()):
         kept = 0
@@ -159,7 +165,7 @@ def main() -> None:
                     continue
                 if not gemma_accepts(ok):
                     continue
-                out = NEG_DIR / f"{cat}__{len(manifest):03d}.jpg"
+                out = NEG_DIR / f"{prefix}{cat}__{len(manifest):03d}.jpg"
                 img.save(out, quality=92)
                 manifest.append({
                     "file": out.name, "category": cat, "search_term": term,
@@ -169,7 +175,7 @@ def main() -> None:
                 })
                 kept += 1
         print(f"{cat}: kept {kept}", file=sys.stderr)
-    MANIFEST.write_text(json.dumps({
+    out_manifest.write_text(json.dumps({
         "source": "Wikimedia Commons",
         "note": "Same-category product photos used as negatives. Filtered by SigLIP zero-shot category match, "
                 "a Gemma 4 listing-photo check, and by not being a near-duplicate (cosine >= 0.92) of any "
@@ -177,7 +183,7 @@ def main() -> None:
                 "verified as non-recalled models.",
         "items": manifest,
     }, indent=1))
-    print(f"{len(manifest)} negatives -> {MANIFEST}")
+    print(f"{len(manifest)} negatives -> {out_manifest}")
 
 
 if __name__ == "__main__":

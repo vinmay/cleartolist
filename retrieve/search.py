@@ -45,6 +45,7 @@ class RetrievalResult:
     read: ItemRead | None = None
     lists: dict[str, list[int]] = field(default_factory=dict)
     query_kind: str = "product"
+    text_led: bool = False  # the photo is mostly a label and Gemma read words off it, so text search led
 
 
 @lru_cache(maxsize=1)
@@ -132,8 +133,8 @@ def retrieve(
                 for rid in brand_ids:
                     exact.setdefault(rid, []).append("brand")
 
+    text_led = query_kind["kind"] != "product" and item is not None and item.has_text()
     if weights is None:
-        text_led = query_kind["kind"] != "product" and item is not None and item.has_text()
         weights = FUSION_WEIGHTS["label" if text_led else "product"]
         if "image" not in use:  # text-only ablation: the text signal is all there is
             weights = FUSION_WEIGHTS["label"]
@@ -144,4 +145,5 @@ def retrieve(
         c.image_score = image_score.get(c.recall_id)
         if c.recall_id in exact and "brand" in exact[c.recall_id] and "brand" not in c.exact:
             c.exact.append("brand")
-    return RetrievalResult(candidates=fused[:k], read=item, lists=lists, query_kind=query_kind["kind"])
+    return RetrievalResult(candidates=fused[:k], read=item, lists=lists, query_kind=query_kind["kind"],
+                           text_led=text_led)

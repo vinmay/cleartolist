@@ -86,7 +86,7 @@ Held-out test on a 6 GB consumer GPU. Each positive is a CPSC recall photo with 
 
 What this says, plainly:
 
-- **Retrieval is the solid part.** Two times in three, the right recall is in the top 3 for a children's product, from the photo alone. That's the number the kill criterion applied to: the spike passed at 71% (n=90); the larger test lands at 69%.
+- **Retrieval is the solid part.** Two times in three, the right recall is in the top 3 for a children's product, from the photo alone. That's the number the kill criterion applied to (about 60% top-3): the spike passed at 71% (n=90), and the larger test lands at 69%.
 - **Generic-looking products depend on label reading.** Image top-3 is 45% for cribs, bassinets and sleepers and 40% for furniture: one white crib looks like another. On label close-ups, image search gets 18% but Gemma's read gets 55%. So photograph the label too; the app asks for a label photo when a match is unsure.
 - **The verifier is the weak part.** Gemma 4 E4B, shown the seller's photo next to the top 3 recall photos, often declines to pick and is right about half the time when it says LIKELY; on stroller and crib lookalikes it raises too many false alarms. That's why LIKELY means "check the recall page", never "this is recalled", and why the app always shows the recall photo next to yours.
 - **CONFIRMED is rare and accurate** (5 of 6): it needs a model number or UPC read off the item that matches a recall.
@@ -95,7 +95,7 @@ Limits: positives are official product photos degraded to look like phone shots,
 
 **One correction, disclosed.** The numbers above are a post-hoc run. The frozen test run ([`eval/results_frozen.md`](eval/results_frozen.md)) came first and had fused top-3 at 62% for children's products. Error analysis on it found two bugs: text-led fusion on photos where Gemma read no words, and an UNSURE fallback that looked only at the first candidate. They were fixed in a29e5ac and the same queries re-run with the same Gemma reads. The fixes were found on the test set, so read the gap between the two runs as optimistic.
 
-**Fine-tuning (Tinker) was not attempted:** the stretch condition was borderline (69% vs a ~70% bar) and Tinker's published model list doesn't include Gemma.
+**Fine-tuning (Tinker) was not attempted:** its separate gate (about 70% top-3) wasn't met at 69% and Tinker's published model list doesn't include Gemma.
 
 ## Why open models
 

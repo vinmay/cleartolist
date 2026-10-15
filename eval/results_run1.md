@@ -1,4 +1,4 @@
-# ClearToList evaluation results: frozen test run (before error analysis)
+# ClearToList evaluation results: Run 1 (frozen test run, LIKELY/UNSURE verdicts, before error analysis)
 
 Generated 2026-10-15 on a 6 GB consumer GPU. Vision model `gemma4:e4b`, image model `google/siglip2-base-patch16-224`, text model `embeddinggemma:300m`.
 

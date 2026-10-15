@@ -13,13 +13,13 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from PIL import Image
 
 from ingest.cpsc import DB_PATH, connect
 from read.gemma import OllamaVision
-from verify.pipeline import DISCLAIMER, scan
+from verify.pipeline import DISCLAIMER, label_followup, scan
 
 ROOT = Path(__file__).parent
 DATA = Path("data").resolve()
@@ -86,6 +86,18 @@ async def api_scan(photo: UploadFile = File(...)) -> dict[str, Any]:
     return _public(cached_scan(await photo.read()))
 
 
+@app.post("/api/label")
+async def api_label(photo: UploadFile = File(...), item: str = Form("{}")) -> dict[str, Any]:
+    """Second step: the label photo for an item already scanned (item = that scan's JSON result)."""
+    try:
+        prev = json.loads(item)
+    except json.JSONDecodeError as e:
+        raise HTTPException(400, "item must be the JSON result of the item scan") from e
+    prev.setdefault("matches", [])
+    prev.setdefault("verdict", "NO MATCH FOUND")
+    return _public(label_followup(prev, cached_scan(await photo.read())))
+
+
 @app.post("/api/batch")
 async def api_batch(photos: list[UploadFile] = File(...)) -> dict[str, Any]:
     rows = []
@@ -95,15 +107,17 @@ async def api_batch(photos: list[UploadFile] = File(...)) -> dict[str, Any]:
         except HTTPException as e:
             rows.append({"file": f.filename, "verdict": "ERROR", "error": e.detail})
             continue
-        top = r["matches"][0] if r["matches"] else None
+        ms = r["matches"] if r["verdict"] != "NO MATCH FOUND" else []
+        if r["verdict"] == "CONFIRMED":
+            ms = ms[:1]
         rows.append({
             "file": f.filename, "verdict": r["verdict"],
             "item": (r["read"] or {}).get("category", ""),
-            "recall_title": top["title"] if top and r["verdict"] != "NO MATCH FOUND" else "",
-            "recall_url": top["url"] if top and r["verdict"] != "NO MATCH FOUND" else "",
+            "recall_title": " | ".join(m["title"] for m in ms),
+            "recall_url": " | ".join(m["url"] for m in ms),
             "seconds": r["timings"]["total_s"],
         })
-    order = {"CONFIRMED": 0, "LIKELY": 1, "UNSURE": 2, "ERROR": 3, "NO MATCH FOUND": 4}
+    order = {"CONFIRMED": 0, "POSSIBLE MATCH": 1, "ERROR": 2, "NO MATCH FOUND": 3}
     rows.sort(key=lambda r: order.get(r["verdict"], 9))
     return {"rows": rows, "disclaimer": DISCLAIMER}
 

@@ -1,36 +1,27 @@
-"""Map the verifier's forced choice + exact-match evidence to a verdict. Pure logic, unit-tested."""
+"""Turn retrieval evidence into one of three verdicts. Pure logic, unit-tested.
+
+Only a code match is an alarm. A shortlist that merely looks similar is shown as POSSIBLE MATCH, which asks
+the user to photograph the label and never claims the item is recalled.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum
 
 
 class Verdict(str, Enum):
     CONFIRMED = "CONFIRMED"
-    LIKELY = "LIKELY"
-    UNSURE = "UNSURE"
+    POSSIBLE = "POSSIBLE MATCH"
     NO_MATCH = "NO MATCH FOUND"
 
     @property
     def severity(self) -> int:
-        return {"CONFIRMED": 3, "LIKELY": 2, "UNSURE": 1, "NO MATCH FOUND": 0}[self.value]
+        return {"CONFIRMED": 2, "POSSIBLE MATCH": 1, "NO MATCH FOUND": 0}[self.value]
 
 
-@dataclass
-class Choice:
-    """What the verifier answered when shown the seller's photo next to all candidate recall photos."""
-
-    index: int | None  # 0-based candidate the verifier says is the same product design, or None
-    confidence: str = "low"  # "high" | "medium" | "low"
-    same_brand: str = "cannot_tell"  # "yes" | "no" | "cannot_tell"
-    model_consistent: str = "cannot_tell"  # "yes" | "no" | "cannot_tell"
-    reason: str = ""
-
-
-# If the verifier picks nothing but the closest recall photo is this similar (SigLIP 2 cosine), say UNSURE
-# rather than NO MATCH: missing a recall is the worse error for a safety screen. Tuned on the dev split.
-UNSURE_IMAGE_SIM = 0.80
+# When the shortlist is worth showing. Chosen on the dev split only (eval/gate.py); see eval/results.md.
+POSSIBLE_IMAGE_SIM = 0.70  # closest recall photo in the shortlist, SigLIP 2 cosine
+POSSIBLE_IF_TEXT_LED = True  # label/packaging photo where Gemma read words: the text-led shortlist is shown
 
 
 def has_code(exact: list[str]) -> bool:
@@ -38,32 +29,24 @@ def has_code(exact: list[str]) -> bool:
 
 
 def decide(
-    choice: Choice, exact: list[list[str]], image_scores: list[float | None] | None = None
+    exact: list[list[str]], image_scores: list[float | None], text_led: bool = False,
+    image_sim: float | None = None, if_text_led: bool | None = None,
 ) -> tuple[Verdict, int | None]:
-    """Return (verdict, index of the candidate it refers to).
+    """Return (verdict, index of the shortlist candidate it refers to).
 
-    CONFIRMED  a model number / UPC read from the photo matches a recall, and the verifier picked that recall.
-    LIKELY     the verifier picked a recall with high confidence; no visible brand or model contradicts it.
-    UNSURE     conflicting or weaker evidence: a code hit the verifier did not pick, a pick with lower
-               confidence, a pick whose visible brand differs, or no pick while the closest recall photo is
-               very similar (max of image_scores >= UNSURE_IMAGE_SIM). Never presented as a match.
-    NO MATCH   no pick and no code hit, or the visible model number is not one of the recalled models.
+    CONFIRMED       a model number or UPC read off the item matches a shortlisted recall.
+    POSSIBLE MATCH  no code match, but the closest recall photo is similar enough (or the photo is a label
+                    whose words led the search): show the shortlist and ask for a label photo.
+    NO MATCH FOUND  otherwise. Means no match in CPSC recalls, never "safe".
     """
+    image_sim = POSSIBLE_IMAGE_SIM if image_sim is None else image_sim
+    if_text_led = POSSIBLE_IF_TEXT_LED if if_text_led is None else if_text_led
     coded = [i for i, e in enumerate(exact) if has_code(e)]
-    i = choice.index
-    if i is not None and i in coded:
-        return Verdict.CONFIRMED, i
-    if coded and i is None:
-        return Verdict.UNSURE, coded[0]  # the label says recalled, the photo comparison disagrees
-    if i is None:
-        scores = [s if s is not None else -1.0 for s in image_scores or []]
-        if scores and max(scores) >= UNSURE_IMAGE_SIM:
-            return Verdict.UNSURE, scores.index(max(scores))
-        return Verdict.NO_MATCH, None
-    if choice.model_consistent == "no":
-        return Verdict.NO_MATCH, None
     if coded:
-        return Verdict.UNSURE, coded[0]  # code points at one recall, the photo at another
-    if choice.confidence == "high" and choice.same_brand != "no":
-        return Verdict.LIKELY, i
-    return Verdict.UNSURE, i
+        return Verdict.CONFIRMED, coded[0]
+    scores = [s if s is not None else -1.0 for s in image_scores]
+    if scores and max(scores) >= image_sim:
+        return Verdict.POSSIBLE, None
+    if text_led and if_text_led and exact:
+        return Verdict.POSSIBLE, None
+    return Verdict.NO_MATCH, None

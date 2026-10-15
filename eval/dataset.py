@@ -40,6 +40,7 @@ from ingest.cpsc import DB_PATH, connect
 WORK = Path("eval/work")
 NEG_DIR = Path("data/negatives")
 NEG_MANIFEST = Path("eval/negatives_manifest.json")
+NEG_DEV_MANIFEST = Path("eval/negatives_dev_manifest.json")
 OWNER_DIR = Path("eval/owner_photos")
 DUP_COS = 0.95
 
@@ -93,8 +94,10 @@ def leakage_exclusions(store: VectorStore, held: str, hashes: dict[str, str]) ->
 
 
 def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40, out: str = "queries.json",
-          avoid: set[int] | None = None, negatives: bool = True, label_queries: int = 40) -> list[dict]:
+          avoid: set[int] | None = None, negatives: bool = True, label_queries: int = 40,
+          neg_manifest: Path = NEG_MANIFEST, owner: bool = True, avoid_photos: set[str] | None = None) -> list[dict]:
     avoid = avoid or set()
+    avoid_photos = avoid_photos or set()  # e.g. every photo the test set hides, so dev never sees a test photo
     conn = connect(DB_PATH)
     store = VectorStore.load(image_store_path())
     kind = dict(zip((str(k) for k in store.keys), image_kinds(store), strict=True))
@@ -128,6 +131,8 @@ def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40, o
                 continue
             held = products[0]
             excl = leakage_exclusions(store, held, hashes)
+            if set(excl) & avoid_photos:
+                continue
             if not [p for p in products if p not in set(excl)]:
                 continue  # no other distinct product photo of this recall to match against
             qpath = WORK / "pos" / f"{rid}.jpg"
@@ -151,6 +156,8 @@ def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40, o
                 continue
             held = labels[0]
             excl = leakage_exclusions(store, held, hashes)
+            if set(excl) & avoid_photos:
+                continue
             if not [p for p in by_recall[rid] if p not in set(excl)]:
                 continue
             qpath = WORK / "pos" / f"{rid}_label.jpg"
@@ -159,13 +166,13 @@ def build(per_category: int = 20, seed: int = 7, per_child_category: int = 40, o
                             "run": "label", "held_out": held, "exclude": excl, "source": "cpsc_holdout_label"})
             taken += 1
 
-    if negatives and NEG_MANIFEST.exists():
-        for item in json.loads(NEG_MANIFEST.read_text())["items"]:
+    if negatives and neg_manifest.exists():
+        for item in json.loads(neg_manifest.read_text())["items"]:
             p = NEG_DIR / item["file"]
-            if p.exists() and run_of(item["category"]):
+            if p.exists() and run_of(item["category"]) and not item.get("excluded"):
                 queries.append({"path": str(p), "label": "neg", "recall_id": None, "category": item["category"],
                                 "run": run_of(item["category"]), "exclude": [], "source": "commons"})
-    for p in sorted(OWNER_DIR.glob("*")) if negatives and OWNER_DIR.exists() else []:
+    for p in sorted(OWNER_DIR.glob("*")) if owner and OWNER_DIR.exists() else []:
         if p.suffix.lower() not in {".jpg", ".jpeg", ".png", ".webp"}:
             continue
         head = p.stem.split("_")[0]
@@ -184,11 +191,14 @@ if __name__ == "__main__":
     ap.add_argument("--per-child-category", type=int, default=40)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--dev", action="store_true",
-                    help="build a small tuning split (dev_queries.json) from recalls not in the test set")
+                    help="build the tuning split (dev_queries.json) from recalls not in the test set")
     a = ap.parse_args()
     if a.dev:
-        test_ids = {x["recall_id"] for x in json.loads((WORK / "queries.json").read_text()) if x["recall_id"]}
-        q = build(3, 1234, 4, out="dev_queries.json", avoid=test_ids, negatives=False, label_queries=8)
+        test = json.loads((WORK / "queries.json").read_text())
+        test_ids = {x["recall_id"] for x in test if x["recall_id"]}
+        test_photos = {e for x in test for e in x["exclude"]}
+        q = build(8, 1234, 25, out="dev_queries.json", avoid=test_ids, label_queries=25,
+                  neg_manifest=NEG_DEV_MANIFEST, owner=False, avoid_photos=test_photos)
     else:
         q = build(a.per_category, a.seed, a.per_child_category)
     for run in ("children", "mixed", "label", "owner"):
