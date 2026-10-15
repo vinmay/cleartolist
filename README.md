@@ -136,7 +136,7 @@ What this says, plainly:
 
 Limits: positives are official product photos degraded to look like phone shots, not real thrift-store photos; Commons negatives aren't verified non-recalled (two were removed after an audit, see the manifest); play yards (1 positive) and high chairs (13) are too small to read anything into.
 
-**How we got here, disclosed.** Run 1 ([results](eval/results_run1.md)) used a Gemma verifier and LIKELY/UNSURE verdicts. Error analysis on Run 1's test results found two bugs, fixed in a29e5ac; Run 2 ([results](eval/results_run2.md)) re-ran the same queries, so its gain over Run 1 is optimistic. The verifier was then taken out of the alarm path entirely, the gate was chosen on the dev split only, and Run 3 ran the test set once with no changes after. On dev, the verifier added one query of top-3 (95 to 96 of 153) for about 23 s more per scan, so it was dropped.
+**How we got here, disclosed.** Run 1 ([results](eval/results_run1.md)) used a Gemma verifier and LIKELY/UNSURE verdicts. Error analysis on Run 1's test results found two bugs, fixed in 7bff2ed; Run 2 ([results](eval/results_run2.md)) re-ran the same queries, so its gain over Run 1 is optimistic. The verifier was then taken out of the alarm path entirely, the gate was chosen on the dev split only, and Run 3 ran the test set once with no changes after. On dev, the verifier added one query of top-3 (95 to 96 of 153) for about 23 s more per scan, so it was dropped.
 
 ## Why open models
 

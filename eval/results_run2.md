@@ -2,7 +2,7 @@
 
 Generated 2026-10-15 on a 6 GB consumer GPU. Vision model `gemma4:e4b`, image model `google/siglip2-base-patch16-224`, text model `embeddinggemma:300m`.
 
-This is the post-hoc run. The frozen test run (`eval/results_run1.md`) came first; error analysis on it found two bugs (text-led fusion on photos where nothing was read, and an UNSURE fallback that looked only at the first candidate), fixed in commit a29e5ac. This run reuses the same Gemma reads, so only fusion and verdicts changed. Because the fixes were found on the test set, treat the gap between the two runs as optimistic.
+This is the post-hoc run. The frozen test run (`eval/results_run1.md`) came first; error analysis on it found two bugs (text-led fusion on photos where nothing was read, and an UNSURE fallback that looked only at the first candidate), fixed in commit 7bff2ed. This run reuses the same Gemma reads, so only fusion and verdicts changed. Because the fixes were found on the test set, treat the gap between the two runs as optimistic.
 
 Positives are held-out CPSC recall photos with simulated phone-photo degradation; the held-out photo and every copy of it are removed from the index for that query. Negatives are licensed same-category product photos from Wikimedia Commons (see `eval/negatives_manifest.json`).
 
