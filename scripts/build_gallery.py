@@ -25,6 +25,7 @@ from index.models import load_image
 from ingest.categories import CHILD_CATEGORIES
 from ingest.cpsc import DB_PATH
 from verify.pipeline import label_followup, scan
+from worker.worker import display_field
 
 GALLERY = Path("demo/gallery")
 INDEX = GALLERY / "gallery.json"
@@ -45,11 +46,22 @@ def card(conn: sqlite3.Connection, r: dict[str, Any]) -> dict[str, Any]:
         "verdict": r["verdict"],
         "recalls": [{"title": m["title"], "url": m["url"], "image_url": remote_url(conn, m["recall_image"]),
                      "code": ", ".join(e for e in m["exact"] if e.startswith(("model:", "upc:")))} for m in ms],
-        "read_summary": ", ".join(x for x in [read.get("category"), read.get("brand"), read.get("model_number"),
-                                              read.get("upc")] if x),
+        "read_summary": ", ".join(x for x in (display_field(read.get(k), 60)
+                                              for k in ("category", "brand", "model_number", "upc")) if x),
         "seconds": r["timings"]["total_s"],
-        "note": next((n for n in r["notes"] if not n.startswith(("Screening", "Photograph the label"))), ""),
+        "note": label_note(r),
     }
+
+
+def label_note(r: dict[str, Any]) -> str:
+    """Fixed wording, with only display-cleaned codes, instead of the pipeline's free-text note."""
+    if r.get("step") != "label" or r["verdict"] == "CONFIRMED":
+        return ""
+    lr = r.get("label_read") or r.get("read") or {}
+    codes = [c for c in (display_field(lr.get("model_number"), 40), display_field(lr.get("upc"), 20)) if c]
+    if codes:
+        return f"Read {', '.join(codes)} on the label; that isn't listed in any CPSC recall in this database."
+    return "No model number or UPC could be read on the label."
 
 
 def truth_of(conn: sqlite3.Connection, rid: int, final: dict[str, Any], r: dict[str, Any]) -> dict[str, Any]:
@@ -75,8 +87,15 @@ SIMULATED = ("Simulated: held-out CPSC photos (linked) were cropped, rotated, di
              "with those photos hidden from the index. Not a real thrift photo.")
 
 
-def pairs(n: int, seed: int = 11) -> list[dict[str, Any]]:
-    """Children's recalls with a product photo and a label photo, both held out: the two-photo flow."""
+SELECTED = ("Selected, not random: picked from recalls where the label scan read a model number that matched, to "
+            "show the label step. ")
+
+
+def pairs(n: int, seed: int = 11, with_codes: bool = False) -> list[dict[str, Any]]:
+    """Children's recalls with a product photo and a label photo, both held out: the two-photo flow.
+
+    with_codes picks recalls whose label photo Gemma can read a listed model number from (disclosed on the card).
+    """
     conn = sqlite3.connect(DB_PATH)
     store = VectorStore.load(image_store_path())
     kind = dict(zip((str(k) for k in store.keys), image_kinds(store), strict=True))
@@ -90,11 +109,15 @@ def pairs(n: int, seed: int = 11) -> list[dict[str, Any]]:
     hashes = {p: _sha(p) for ps in by.values() for p in ps}
     pool = sorted(rid for rid, ps in by.items() if cats.get(rid) in CHILD_CATEGORIES and rid not in test
                   and sum(kind[p] == "product" for p in ps) >= 2 and any(kind[p] == "label" for p in ps))
+    if with_codes:
+        pool = [r for r in pool if conn.execute("SELECT 1 FROM model_numbers WHERE recall_id=?", (r,)).fetchone()]
     rng = random.Random(seed)
     rng.shuffle(pool)
     WORK.mkdir(parents=True, exist_ok=True)
     out = []
-    for rid in pool[:n]:
+    for rid in pool:
+        if len(out) >= n:
+            break
         prod = next(p for p in by[rid] if kind[p] == "product")
         lab = next(p for p in by[rid] if kind[p] == "label")
         excl = sorted(set(leakage_exclusions(store, prod, hashes)) | set(leakage_exclusions(store, lab, hashes)))
@@ -103,8 +126,10 @@ def pairs(n: int, seed: int = 11) -> list[dict[str, Any]]:
         degrade(load_image(lab), rng).save(lp, quality=90)
         item = scan(str(ip), exclude_keys=excl).to_dict()
         final = label_followup(item, scan(str(lp), exclude_keys=excl).to_dict())
+        if with_codes and final["verdict"] != "CONFIRMED":
+            continue  # only labels whose model number was read and matched are shown in the selected set
         e = {"id": f"pair-{rid}", "kind": "pair", "photo_url": remote_url(conn, prod),
-             "label_photo_url": remote_url(conn, lab), "photo_source": SIMULATED,
+             "label_photo_url": remote_url(conn, lab), "photo_source": (SELECTED if with_codes else "") + SIMULATED,
              "item": card(conn, item), "final": card(conn, final), "truth": truth_of(conn, rid, final, final)}
         print(f"pair {rid}: item {item['verdict']} -> label {final['verdict']} ({e['truth']['outcome']})")
         out.append(e)
@@ -146,9 +171,11 @@ def main() -> None:
     ap.add_argument("photos", nargs="*")
     ap.add_argument("--source", default="Photo scanned locally")
     ap.add_argument("--pairs", type=int, default=0)
+    ap.add_argument("--selected-pairs", type=int, default=0, help="pairs whose label confirms (disclosed as selected)")
     ap.add_argument("--from-eval", type=int, default=0, help="add N children's eval positives (simulated photos)")
     a = ap.parse_args()
-    entries = owner(a.photos, a.source) + pairs(a.pairs) + from_eval(a.from_eval)
+    entries = (owner(a.photos, a.source) + pairs(a.selected_pairs, seed=23, with_codes=True) + pairs(a.pairs)
+               + from_eval(a.from_eval))
     save(entries)
 
 

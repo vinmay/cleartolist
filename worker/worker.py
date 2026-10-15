@@ -55,10 +55,23 @@ def clip(s: Any, n: int) -> str:
     return _CTRL.sub(" ", str(s or ""))[:n]
 
 
+_JUNK = re.compile(r"[<>{}`\[\]|\\]|tool_call|unreadable|not[ _]visible|none[ _]found|^n/?a$|^none$", re.I)
+_UNSAFE = re.compile(r"[^A-Za-z0-9 '&.,/()+#:-]")
+
+
+def display_field(s: Any, n: int) -> str:
+    """A read field fit to show a user: model output is untrusted, so markup-like or placeholder text is dropped
+    and anything outside a plain character set is removed. Display only; matching uses the raw read."""
+    s = clip(s, 200).strip()
+    if not s or _JUNK.search(s):
+        return ""
+    return re.sub(r"\s+", " ", _UNSAFE.sub("", s)).strip()[:n]
+
+
 def read_fields(read: dict[str, Any] | None) -> dict[str, str]:
     r = read or {}
-    return {"category": clip(r.get("category"), 80), "brand": clip(r.get("brand"), 80),
-            "model_number": clip(r.get("model_number"), 40), "upc": clip(r.get("upc"), 20)}
+    return {"category": display_field(r.get("category"), 80), "brand": display_field(r.get("brand"), 80),
+            "model_number": display_field(r.get("model_number"), 40), "upc": display_field(r.get("upc"), 20)}
 
 
 def to_wire(item: dict[str, Any], final: dict[str, Any], label: dict[str, Any] | None, seconds: float) -> dict:

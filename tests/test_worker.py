@@ -51,3 +51,13 @@ def test_worker_needs_a_strong_secret(monkeypatch):
     monkeypatch.setenv("CTL_WORKER_SECRET", "short")
     with pytest.raises(SystemExit):
         config()
+
+
+@pytest.mark.parametrize("raw,want", [
+    ("!-shirt, '') }}<tool_call>", ""), ("none_found_or_unreadable_in_image", ""), ("N/A", ""),
+    ("Graco Pack 'n Play", "Graco Pack 'n Play"), ("WK8283CU", "WK8283CU"), ("baby\tsnowsuit\n", "baby snowsuit"),
+])
+def test_display_field_drops_markup_and_placeholders(raw, want):
+    from worker.worker import display_field
+
+    assert display_field(raw, 80) == want

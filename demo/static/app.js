@@ -122,7 +122,8 @@ async function gallery() {
   try {
     const items = await api("/api/gallery");
     if (!items.length) { $("#gallery").innerHTML = `<p class="meta">No example scans yet.</p>`; return; }
-    items.sort((a, b) => (a.kind === "pair" ? 0 : 1) - (b.kind === "pair" ? 0 : 1));
+    const rank = (s) => (String(s.photo_source).startsWith("Selected") ? 0 : s.kind === "pair" ? 1 : 2);
+    items.sort((a, b) => rank(a) - rank(b));
     $("#gallery").innerHTML = items.filter((s) => s.item).map((s) => {
       const fin = s.final || s.item;
       return `<div class="scan"><div class="v ${cls(fin.verdict)}">${esc(fin.verdict)}${s.kind === "pair" ? " after the label photo" : ""}</div>

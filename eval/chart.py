@@ -51,7 +51,7 @@ def main(src: Path = Path("eval/results.json"), out: Path = Path("eval/ablation.
     n = {r: res[r]["n_pos"] for r in runs}
     ax.set_title("Correct recall in the top 3 results", loc="left", fontsize=12, color=INK, pad=22,
                  fontweight="bold")
-    ax.text(0, 1.03, "Held-out CPSC recall photos with simulated phone-photo degradation",
+    ax.text(0, 1.03, "Run 3: held-out CPSC recall photos with simulated phone-photo degradation",
             transform=ax.transAxes, fontsize=8, color=INK2)
     handles = [plt.Rectangle((0, 0), 1, 1, facecolor=SERIES[r][0]) for r in runs]
     ax.legend(handles, [f"{SERIES[r][1]} (n={n[r]})" for r in runs], loc="lower left", bbox_to_anchor=(0, -0.28),
