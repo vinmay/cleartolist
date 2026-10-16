@@ -509,3 +509,16 @@ details.invite summary::-webkit-details-marker { display: none; }
 .doc ul { padding-left: 20px; }
 .doc li { margin: 6px 0; }
 .updated { color: var(--muted); font-size: 15px; margin-top: 0; }
+
+/* phones: a big camera button and a library link instead of the drop zone */
+.mobile-pick { display: none; }
+@media (max-width: 767px) {
+  #dropPhoto:not(.has-file) { display: none; }
+  .mobile-pick { display: grid; gap: 10px; justify-items: start; }
+  .step-body:has(#dropPhoto.has-file) .mobile-pick { display: none; }
+  .take { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 64px; border-radius: var(--r-control);
+    border: 2px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 700; font-size: 18px; cursor: pointer; }
+  .take:focus-within, .choose:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .choose { color: var(--blue); font-weight: 600; font-size: 16px; cursor: pointer; padding: 4px 0; }
+}
+@media (max-width: 767px) { .mobile-pick { gap: 4px; } .take { min-height: 60px; } }
