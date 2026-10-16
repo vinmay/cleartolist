@@ -228,9 +228,26 @@ async function pollJob(job, hadLabel) {
   show(unavailable());
 }
 
+// Busy scanner or no free checks left: a friendly note with a way to keep going (the model number lookup never
+// uses the scanner queue, so it always works).
+function busyPanel(kind) {
+  const text = kind === "quota"
+    ? "Today's free checks are used up. You can still look up a model number, or get an invite code to keep checking photos."
+    : "Lots of people are checking right now. Try again in a minute, or look up a model number below.";
+  return `<div class="panel notice busy-note"><span class="dot" aria-hidden="true"></span><div><p>${esc(text)}</p>
+    <p class="busy-actions"><button type="button" class="secondary" data-goto-model>Look up a model number</button>
+    ${kind === "quota" ? `<a href="#invite-request">Get an invite code</a>` : ""}</p></div></div>`;
+}
+function busyKind(err) {
+  if (err.status === 503 && /busy/i.test(err.message)) return "busy";
+  if (err.status === 429 && /free (scans|checks) are used up/i.test(err.message)) return "quota";
+  return null;
+}
 function scanFailed(err) {
   $("#result").hidden = true;
-  if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or leave it empty to use today's free scans.");
+  const kind = busyKind(err);
+  if (kind) show(busyPanel(kind));
+  else if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or leave it empty to use today's free checks.");
   else if (err.status === 503 && /unavailable/i.test(err.message)) show(unavailable());
   else formError(err.message);
 }
@@ -332,6 +349,7 @@ async function recheckWithLabel(input) {
     await pollJob(job, true);
   } catch (x) {
     btn.classList.remove("is-busy"); btn.firstChild.textContent = "Add a label photo"; input.disabled = false;
+    if (busyKind(x)) { show(busyPanel(busyKind(x))); return; }
     err.textContent = x.message; err.hidden = false;
   }
 }
@@ -464,12 +482,22 @@ async function runBatch(e) {
   } catch (err) {
     out.innerHTML = "";
     out.hidden = true;
-    if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or leave it empty to use today's free checks.");
+    if (busyKind(err)) show(busyPanel(busyKind(err)));
+    else if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or leave it empty to use today's free checks.");
     else if (err.status === 503 && /unavailable/i.test(err.message)) show(unavailable());
     else batchError(err.message);
   } finally {
     busy($("#scanBtn"), false);
   }
+}
+
+// Scroll to a section, then move keyboard focus once the scroll has finished (focus mid-scroll can be dropped).
+function scrollThenFocus(section, target) {
+  const focus = () => { if (target) target.focus({ preventScroll: true }); };
+  const before = window.scrollY;
+  section.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  if (reduceMotion || !("onscrollend" in window)) { setTimeout(focus, reduceMotion ? 0 : 600); return; }
+  requestAnimationFrame(() => { if (window.scrollY === before) focus(); else window.addEventListener("scrollend", focus, { once: true }); });
 }
 
 // --- slim bar with "Check another item", shown only once the scanner has scrolled out of view ------------------
@@ -481,10 +509,7 @@ function setupMiniBar() {
     bar.hidden = !above; document.body.classList.toggle("has-minibar", above);
   }, { threshold: 0 }).observe(scanner);
   $("#miniCheck").addEventListener("click", () => {
-    $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-    const focusTab = () => { const tab = $("[role=tab][aria-selected=true]"); if (tab) tab.focus({ preventScroll: true }); };
-    if (reduceMotion || !("onscrollend" in window)) setTimeout(focusTab, reduceMotion ? 0 : 600);
-    else window.addEventListener("scrollend", focusTab, { once: true });
+    scrollThenFocus($("#scanner"), $("[role=tab][aria-selected=true]"));
   });
 }
 
@@ -607,6 +632,11 @@ document.addEventListener("click", async (e) => {
   if (b) copyRecallLink(b);
   const rep = e.target.closest("[data-report]");
   if (rep && report) (rep.dataset.report === "csv" ? downloadCsv : printReport)();
+  const gm = e.target.closest("[data-goto-model]");
+  if (gm) {
+    selectTab($("#tabModel"));
+    scrollThenFocus($("#scanner"), $("#q"));
+  }
   const role = e.target.closest(".seg [data-role]");
   if (role) {
     const box = role.closest(".next"), buy = role.dataset.role === "buy";

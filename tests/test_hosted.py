@@ -714,3 +714,24 @@ def test_heic_upload_round_trip(client):
     assert r.status_code == 202
     d = signed(client, "POST", "/worker/claim").json()
     assert signed(client, "GET", f"/worker/jobs/{d['job']}/photo/item").content.startswith(b"\xff\xd8\xff")
+
+
+def test_model_number_lookup_never_touches_the_scanner_queue(client, monkeypatch):
+    monkeypatch.setattr(jobs, "MAX_QUEUE", 0)  # queue full
+    monkeypatch.setenv("CTL_UPLOADS_ENABLED", "0")  # uploads off
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "0")  # no free checks left
+    server.STATE["worker_seen"] = 0.0  # no worker
+    before = dict(server.QUEUE.counts), len(server.QUEUE.jobs)
+    r = client.get("/api/lookup?q=AB1234")
+    assert r.status_code == 200 and r.json()["results"][0]["recall_id"] == 101
+    assert (dict(server.QUEUE.counts), len(server.QUEUE.jobs)) == before
+
+
+def test_busy_and_quota_messages_are_recognisable(client, monkeypatch):
+    monkeypatch.setattr(jobs, "MAX_QUEUE", 0)
+    r = submit(client, ip="2.4.6.8")
+    assert r.status_code == 503 and "busy" in r.json()["error"]
+    monkeypatch.setattr(jobs, "MAX_QUEUE", 20)
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "0")
+    r = submit(client, invite="", ip="2.4.6.9")
+    assert r.status_code == 429 and "free checks are used up" in r.json()["error"]

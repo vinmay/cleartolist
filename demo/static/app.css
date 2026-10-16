@@ -573,3 +573,7 @@ footer.site .fine a { color: var(--muted); }
 .closest-toggle .closest { margin-top: 12px; }
 
 @media print { .print-report h1 { display: flex; align-items: center; gap: 8pt; } .print-report .print-mark { width: 22pt; height: 22pt; } }
+
+.busy-note { align-items: start; }
+.busy-note p { margin: 0 0 8px; }
+.busy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
