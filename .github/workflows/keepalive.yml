@@ -1,0 +1,24 @@
+# Keeps the free Render instance awake during launch weekend by pinging /healthz every 10 minutes
+# (free web services spin down after about 15 idle minutes, and the next visitor waits up to a minute).
+# Remove this workflow after switching to a paid Render instance, which doesn't spin down.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    # A slow or failed ping must never mark anything as failing.
+    continue-on-error: true
+    steps:
+      - name: Ping /healthz
+        run: |
+          curl --silent --show-error --max-time 30 --output /dev/null \
+            --write-out "healthz %{http_code} in %{time_total}s\n" \
+            https://cleartolist.onrender.com/healthz || echo "ping failed or timed out; ignoring"
