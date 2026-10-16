@@ -340,3 +340,14 @@ input[type=checkbox], input[type=radio] { accent-color: var(--blue); width: 18px
 input[type=text]:focus-visible, input[type=search]:focus-visible, input[type=email]:focus-visible {
   outline: 3px solid var(--blue); outline-offset: 1px; border-color: var(--blue); }
 .sample:focus-visible, .chip:focus-visible, .drop:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* buyer lane */
+.buyer { margin: 14px 0 0; font-size: 17px; }
+.ask { margin-top: 14px; display: grid; gap: 8px; justify-items: start; }
+.ask p { margin: 0; }
+.ask-msg { font-size: 15px; color: var(--muted); }
+.lane { display: inline-block; margin: 0 0 6px; font-size: 13px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+  border: 1.5px solid var(--blue); color: var(--blue-on-bg); }
+@media (min-width: 900px) { .gallery[data-set=curated] { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1100px) { .gallery[data-set=curated] { grid-template-columns: repeat(4, 1fr); } }
+.example .sticker { width: 78px; font-size: 12px; font-stretch: 100%; padding: 2px; }

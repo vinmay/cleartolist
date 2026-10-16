@@ -90,5 +90,39 @@
    "seconds": 15.4,
    "note": ""
   }
+ },
+ {
+  "id": "curated-buying",
+  "kind": "single",
+  "set": "curated",
+  "lane": "buying",
+  "photo_url": "/static/samples/check-item.jpg",
+  "item": {
+   "verdict": "POSSIBLE MATCH",
+   "recalls": [
+    {
+     "title": "Graco Recalls Inclined Sleeper Accessory Included with Four Models of Playards to Prevent Risk of Suffocation",
+     "url": "https://www.cpsc.gov/Recalls/2021/Graco-Recalls-Inclined-Sleeper-Accessory-Included-with-Four-Models-of-Playards-to-Prevent-Risk-of-Suffocation",
+     "image_url": "https://www.cpsc.gov/s3fs-public/1-10283AM.png",
+     "code": ""
+    },
+    {
+     "title": "Graco Recalls Little Lounger Rocking Seats to Prevent Risk of Suffocation",
+     "url": "https://www.cpsc.gov/Recalls/2020/Graco-Recalls-Little-Lounger-Rocking-Seats-to-Prevent-Risk-of-Suffocation",
+     "image_url": "https://www.cpsc.gov/s3fs-public/3_21.jpg",
+     "code": ""
+    },
+    {
+     "title": "Graco Recalls Highchairs Due to Fall Hazard; Sold Exclusively at Walmart",
+     "url": "https://www.cpsc.gov/Recalls/2018/Graco-Recalls-Highchairs-Due-to-Fall-Hazard-Sold-Exclusively-at-Walmart",
+     "image_url": "https://www.cpsc.gov/s3fs-public/Picture3_8.png",
+     "code": ""
+    }
+   ],
+   "read_summary": "travel system, Graco",
+   "seconds": 22.78,
+   "note": ""
+  },
+  "credit": "Photo: Famartin, CC BY-SA 4.0, via Wikimedia Commons."
  }
 ]

@@ -159,6 +159,15 @@ Limits: positives are official product photos degraded to look like phone shots,
 
 **How we got here, disclosed.** Run 1 ([results](eval/results_run1.md)) used a Gemma verifier and LIKELY/UNSURE verdicts. Error analysis on Run 1's test results found two bugs, fixed in 7bff2ed; Run 2 ([results](eval/results_run2.md)) re-ran the same queries, so its gain over Run 1 is optimistic. The verifier was then taken out of the alarm path entirely, the gate was chosen on the dev split only, and Run 3 ran the test set once with no changes after. On dev, the verifier added one query of top-3 (95 to 96 of 153) for about 23 s more per scan, so it was dropped.
 
+## Who it's for
+
+ClearToList is two-sided:
+
+- **Buyers** check a listing screenshot or a photo before they pay, for free. If it looks like a recalled product, the page gives them a ready-made message asking the seller for a photo of the label.
+- **Resellers** check their haul before they list it: batch scans, invite codes that skip the daily limit, and email alerts when new recalls hit the categories they sell.
+
+**Pricing hypothesis (unvalidated, no users yet):** buyer checks stay free; resellers would pay a small monthly fee for batch scanning and recall alerts. Nothing is charged today.
+
 ## What's next
 
 - **Per-category POSSIBLE MATCH thresholds**, chosen on the dev split, to cut prompts on other-category lookalikes.

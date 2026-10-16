@@ -488,8 +488,9 @@ def test_signup_export_needs_the_admin_signature(client):
 
 def test_gallery_has_one_example_per_verdict_and_no_measurement_page(client):
     cur = client.get("/api/gallery?set=curated").json()
-    assert len(cur) == 3 and all(i["set"] == "curated" for i in cur)
+    assert len(cur) == 4 and all(i["set"] == "curated" for i in cur)
     assert {(i.get("final") or i["item"])["verdict"] for i in cur} == {"CONFIRMED", "POSSIBLE MATCH", "NO MATCH FOUND"}
+    assert [i["id"] for i in cur if i.get("lane") == "buying"] == ["curated-buying"]
     assert not any("photo_source" in i or "truth" in i for i in cur)
     assert client.get("/api/gallery?set=sample").status_code == 400
     assert client.get("/how-we-measured").status_code == 404

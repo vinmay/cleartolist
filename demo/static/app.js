@@ -163,7 +163,7 @@ function renderResult(res, hadLabel) {
   const copy = {
     "CONFIRMED": ["Recalled. Don't list it.", "The model number or UPC on your item matches a CPSC recall."],
     "POSSIBLE MATCH": ["Check the label.", hadLabel ? "Your item looks like these recalls, but the label didn't settle it. Compare the photos and check the recall pages." : "Your item looks like these recalls. That alone doesn't mean it's recalled."],
-    "NO MATCH FOUND": ["No match found.", "No match in CPSC recalls. This does not mean the item is safe. Check cpsc.gov if unsure."],
+    "NO MATCH FOUND": ["No match found.", res.closest ? "No match isn't proof. Check the model number with the manufacturer or CPSC before you buy or sell." : "No match in CPSC recalls. This does not mean the item is safe. Check cpsc.gov if unsure."],
   }[v];
   const notes = res.notes.map((n) => noteText(n, res)).filter(Boolean);
   const r = res.read || {};
@@ -175,7 +175,9 @@ function renderResult(res, hadLabel) {
       <p class="muted">Read from your photo: ${esc(read || "nothing legible")}. Scan took ${esc(res.seconds)} seconds.</p>
       ${v === "POSSIBLE MATCH" && !hadLabel ? `<p><button type="button" class="secondary" id="addLabel">Add a label photo</button></p>` : ""}</div>`;
   if (v === "CONFIRMED") h += res.recalls.map((m) => recallCard(m, photo)).join("");
-  if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}</div></div>`;
+  if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}
+    <div class="ask"><p><strong>Buying, not holding it?</strong> Ask the seller for a photo of the label.</p>
+    <button type="button" class="secondary" data-ask>Ask the seller for the label</button><span class="ask-msg" aria-live="polite"></span></div></div></div>`;
   if (v === "NO MATCH FOUND" && res.closest && res.recalls.length) {
     h += `<div class="recall wide"><div class="closest"><h3>Closest recalls to check</h3>
       <p class="muted">Suggestions, not matches: none of these met the bar for a possible match. If your item is one of these products, check its label against the recall page.</p>
@@ -365,24 +367,44 @@ async function gallery() {
       const matched = fin.verdict !== "NO MATCH FOUND";  // a no-match card never presents a recall as its match
       const m = matched ? fin.recalls[0] : null;
       const suggestions = !matched && fin.recalls.length ? `<p class="muted">Closest recalls to check (suggestions, not matches): ${fin.recalls.map((x) => esc(x.heading || x.title)).join("; ")}</p>` : "";
-      return `<article class="example">
+      return `<article class="example${s.lane === "buying" ? " buying" : ""}">
         <div class="shot"><img src="${safeUrl(s.photo_url)}" alt="Item photo">${sticker(fin.verdict, true)}</div>
         <div>
+          ${s.lane === "buying" ? `<p class="lane">Buying: a listing photo</p>` : ""}
           ${s.kind === "pair" ? `<div class="label-thumb"><img src="${safeUrl(s.label_photo_url)}" alt="Label photo"><span>With a photo of its label</span></div>` : ""}
           ${m ? rcard(m, { compact: true, codes: m.code ? m.code.split(", ") : [] }) : `<h3 class="rcard-title">No match in CPSC recalls</h3>${suggestions}`}
+          ${s.lane === "buying" ? `<p class="muted small">Then ask the seller for a photo of the label before you pay.</p>` : ""}
+          ${s.credit ? `<p class="muted small">${esc(s.credit)}</p>` : ""}
         </div></article>`;
     }).join("");
   } catch (e) { g.innerHTML = `<p class="muted">Example scans couldn't be loaded.</p>`; }
 }
 
-document.addEventListener("click", (e) => {
+const ASK_SELLER = "Hi! Before I buy, could you send a photo of the label with the model number and date code?";
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {
+    const t = document.createElement("textarea"); t.value = text; t.setAttribute("readonly", ""); t.className = "sr-only";
+    document.body.append(t); t.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (x) { ok = false; }
+    t.remove();
+    return ok;
+  }
+}
+document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-copy]");
   if (b) copyRecallLink(b);
+  const a = e.target.closest("[data-ask]");
+  if (a) {
+    const ok = await copyText(ASK_SELLER);
+    a.nextElementSibling.textContent = ok ? ` Copied: "${ASK_SELLER}"` : ` Copy this: "${ASK_SELLER}"`;
+  }
 });
 
 document.addEventListener("DOMContentLoaded", () => {
   if ($("#gallery")) gallery();
   if ($("#shared")) showSharedRecall();
+  if ($("#buyerLink")) $("#buyerLink").addEventListener("click", (e) => { e.preventDefault(); $("#photo").closest(".drop").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" }); $("#photo").focus(); });
   if (!$("#scanForm")) return;  // pages without the scanner only need the gallery
   try { $("#invite").value = localStorage.getItem("ctl-invite") || ""; } catch (e) { /* storage unavailable */ }
   wireDrop("photo"); wireDrop("label");
