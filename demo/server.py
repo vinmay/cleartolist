@@ -318,6 +318,8 @@ def index(ref: Annotated[str | None, Query(max_length=40)] = None) -> str:
     return (ROOT / "static" / "index.html").read_text()
 
 
+SITE_TITLE = "ClearToList: Is it recalled? Check before you list or buy."
+SITE_DESC = "Check secondhand items against official U.S. recalls before you list or buy. Free, with a photo."
 PUBLIC_URL = os.environ.get("CTL_PUBLIC_URL", "https://cleartolist.onrender.com").rstrip("/")
 
 
@@ -353,10 +355,9 @@ def recall_page(recall_id: Annotated[int, Path(ge=1, le=10_000_000)],
     desc = html.escape(f"{d['hazard_tag']} hazard. {d['what_to_do'] or 'See the CPSC notice.'} "
                        "Check your own items with ClearToList.", quote=True)
     url = f"{PUBLIC_URL}/recall/{recall_id}"
-    for old, new in [("<title>ClearToList: check your haul for recalls</title>", f"<title>{title}</title>"),
-                     ('content="ClearToList: check your haul for recalls"', f'content="{title}"'),
-                     ('content="Check secondhand products against U.S. CPSC recalls before you list them, children\'s '
-                      'products first. Free to try with a photo."', f'content="{desc}"'),
+    for old, new in [(f"<title>{SITE_TITLE}</title>", f"<title>{title}</title>"),
+                     (f'content="{SITE_TITLE}"', f'content="{title}"'),
+                     (f'content="{SITE_DESC}"', f'content="{desc}"'),
                      (f'"{PUBLIC_URL}/"', f'"{url}"')]:
         page = page.replace(old, new)
     return HTMLResponse(page)

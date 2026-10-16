@@ -602,3 +602,11 @@ def test_no_ip_address_or_user_agent_is_stored(client):
     dump = repr(server.STORE.counts("2000-01-01")) + repr(server.STORE.all())
     for leak in ("203.0.113.77", "SpecialAgent", "FingerprintMe", "tracker.example"):
         assert leak not in dump
+
+
+def test_site_title_and_preview_match_the_headline(client):
+    r = client.get("/")
+    assert "<title>ClearToList: Is it recalled? Check before you list or buy.</title>" in r.text
+    assert 'property="og:title" content="ClearToList: Is it recalled? Check before you list or buy."' in r.text
+    shared = client.get("/recall/101").text
+    assert "<title>Recalled: Acme Strollers</title>" in shared and "Is it recalled? Check before" not in shared.split("og:image")[0]
