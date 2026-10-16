@@ -196,7 +196,7 @@ function renderResult(res, hadLabel) {
   h += `</div>`;
   show(h);
   const add = $("#addLabel");
-  if (add) add.addEventListener("click", () => { $("#label").click(); $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); });
+  if (add) add.addEventListener("click", () => { openLabelStep(); $("#label").click(); $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); });
 }
 
 async function pollJob(job, hadLabel) {
@@ -334,6 +334,11 @@ async function runBatch(e) {
   }
 }
 
+// --- collapsed label step and photo policy ----------------------------------------------------------------
+function openLabelStep() {
+  $("#labelZone").hidden = false; $("#addLabelStep").hidden = true; $("#addLabelStep").setAttribute("aria-expanded", "true");
+}
+
 // --- tabs: one item or a whole haul ---------------------------------------------------------------------------
 const haulTab = () => $("#tabHaul").getAttribute("aria-selected") === "true";
 function selectTab(tab) {
@@ -464,6 +469,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => runSample(b)));
   $("#batchPhotos").addEventListener("change", showBatchThumbs);
   setupTabs();
+  $("#addLabelStep").addEventListener("click", () => { openLabelStep(); $("#dropLabel").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" }); $("#label").focus(); });
+  $("#policyLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    const box = $("#policy"); box.hidden = !box.hidden; $("#policyLink").setAttribute("aria-expanded", String(!box.hidden));
+  });
   $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   api("/api/meta").then((m) => {

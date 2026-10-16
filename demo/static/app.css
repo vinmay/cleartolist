@@ -439,3 +439,17 @@ details.invite .hint { margin-top: 6px; }
 .invite-row { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .invite-row input[type=email] { flex: 1 1 220px; max-width: none; }
 @media (max-width: 420px) { .tabs [role=tab] { font-size: 14px; padding: 8px 4px; white-space: nowrap; letter-spacing: -0.01em; } }
+
+/* lean scanner */
+.subline { margin-top: var(--space-1); }
+.samples-title { color: var(--muted); font-weight: 600; }
+.sample { padding: 4px; }
+.drop-main { min-height: 150px; }
+@media (max-width: 640px) { .drop-main { min-height: 120px; } }
+.step:has(.addlabel:not([hidden])) { align-items: center; }
+.addlabel { background: none; border: 0; padding: 6px 0; font: inherit; font-weight: 700; color: var(--blue); cursor: pointer; text-align: left; }
+.addlabel .optional { font-weight: 400; }
+details.invite summary { list-style: none; }
+details.invite summary::-webkit-details-marker { display: none; }
+.privacy a { color: var(--muted); }
+.policy { margin-top: var(--space-1); }
