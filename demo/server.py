@@ -34,6 +34,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.formparsers import MultiPartParser
 
 from demo import security
+from demo import store as signup_store
 from demo.jobs import MAX_BATCH, JobQueue, QueueFull, TooManyPending
 
 # Keep uploaded files in memory while the form is parsed (the default spills anything over 1 MB to a temp file);
@@ -126,6 +127,8 @@ class DailyQuota:
 
 QUEUE = JobQueue()
 QUOTA = DailyQuota()
+STORE = signup_store.from_env()
+SIGNUP_LIMIT = security.RateLimiter(5, 3600)  # invite requests per client per hour
 NONCES = security.NonceStore()
 STATE: dict[str, Any] = {"worker_seen": 0.0, "uploads_override": None}
 SCAN_LIMIT = security.RateLimiter(20, 600)  # photos per client per 10 min (a batch of 10 costs 10)
@@ -309,6 +312,7 @@ def api_meta() -> dict[str, Any]:
         raise HTTPException(503, "Recall data is loading.") from e
     meta["scanning"] = uploads_enabled()  # configured, not whether a worker is up
     meta["free_scans_today"] = QUOTA.left() > 0
+    meta["invite_requests"] = STORE.available
     return meta
 
 
@@ -574,6 +578,66 @@ async def worker_result(request: Request, job_id: str) -> dict[str, bool]:
 async def worker_fail(request: Request, job_id: str) -> dict[str, bool]:
     await require_worker(request)
     return {"ok": JOB_ID.match(job_id) is not None and QUEUE.finish(job_id, None)}
+
+
+# --- invite requests ------------------------------------------------------------------------------------------
+
+class InviteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(max_length=254)
+    consent: bool = False
+    alerts: bool = False
+    categories: list[str] = Field(default_factory=list, max_length=len(signup_store.ALERT_CATEGORIES))
+    website: str = Field("", max_length=200)  # honeypot: hidden from people, filled in by bots
+
+
+@app.post("/api/invite-requests", status_code=202)
+async def invite_request(request: Request, body: InviteRequest) -> dict[str, Any]:
+    """Store an email address (and optional alert categories) to send an invite code to. No address is logged."""
+    if not same_origin(request):
+        raise HTTPException(403, "Cross-site requests are not allowed.")
+    if not SIGNUP_LIMIT.allow(client_of(request)):
+        raise HTTPException(429, "Too many requests from this connection. Please try again in an hour.")
+    thanks = {"ok": True, "message": "Thanks. We'll email you an invite code."}
+    if body.website:
+        QUEUE.count("signup_honeypot")
+        return thanks  # look normal to the bot, store nothing
+    if not body.consent:
+        raise HTTPException(400, "Tick the box to agree that we can store your email address for this.")
+    email = body.email.strip()
+    if not signup_store.EMAIL.match(email):
+        raise HTTPException(400, "That doesn't look like an email address. Check it for typos.")
+    cats = [c for c in dict.fromkeys(body.categories) if c in signup_store.ALERT_CATEGORIES]
+    if len(cats) != len(set(body.categories)):
+        raise HTTPException(400, "Choose categories from the list.")
+    if body.alerts and not cats:
+        raise HTTPException(400, "Choose at least one category for recall alerts, or untick the alerts box.")
+    if not STORE.available:
+        raise HTTPException(503, "Invite requests are closed right now. Please try again later.")
+    try:
+        STORE.add(email, body.alerts, cats if body.alerts else [])
+    except Exception as e:  # never surface database details
+        log.warning("invite request not stored: %s", type(e).__name__)
+        raise HTTPException(503, "We couldn't save that right now. Please try again in a few minutes.") from e
+    QUEUE.count("signup")
+    return thanks
+
+
+@app.get("/admin/invite-requests")
+async def admin_invite_requests(request: Request) -> Response:
+    """CSV of invite requests, for the owner only (signed with the admin secret; scripts/export_signups.py)."""
+    if not security.verify(env_secret("CTL_ADMIN_SECRET"), request.method, request.url.path, b"",
+                           {k.lower(): v for k, v in request.headers.items()}, NONCES):
+        raise HTTPException(401, "Unauthorized.")
+    import csv
+    import io
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["email", "created_at", "alerts", "categories"])
+    for row in STORE.all():
+        w.writerow(row)
+    return Response(buf.getvalue(), media_type="text/csv")
 
 
 # --- admin: instant kill switch and anonymous counts (signed with a separate secret) -------------------------

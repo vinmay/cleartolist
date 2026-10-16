@@ -96,6 +96,41 @@
     <div id="batchOut" class="batch-out" aria-live="polite"></div>
   </section>
 
+  <section class="invite-req" id="invite-request" aria-labelledby="inviteReqH">
+    <h2 id="inviteReqH">Get an invite code</h2>
+    <p class="section-lede">An invite code skips the daily limit on free scans. Leave your email and we'll send one.</p>
+    <form id="inviteForm" class="invite-form" novalidate>
+      <label for="email">Email address</label>
+      <input type="email" id="email" name="email" autocomplete="email" maxlength="254" required aria-describedby="emailErr">
+      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
+      <label class="check"><input type="checkbox" id="alerts"> Email me when new recalls hit categories I sell</label>
+      <fieldset class="cats" id="cats" hidden>
+        <legend>Categories I sell</legend>
+        <div class="cat-grid">
+          <label class="check"><input type="checkbox" name="cat" value="crib_bassinet_sleeper"> Cribs, bassinets and sleepers</label>
+          <label class="check"><input type="checkbox" name="cat" value="stroller"> Strollers</label>
+          <label class="check"><input type="checkbox" name="cat" value="high_chair"> High chairs</label>
+          <label class="check"><input type="checkbox" name="cat" value="play_yard"> Play yards</label>
+          <label class="check"><input type="checkbox" name="cat" value="toy"> Toys</label>
+          <label class="check"><input type="checkbox" name="cat" value="other_child"> Other baby and kids' gear</label>
+          <label class="check"><input type="checkbox" name="cat" value="furniture"> Furniture</label>
+          <label class="check"><input type="checkbox" name="cat" value="heating_cooling"> Heaters and fans</label>
+          <label class="check"><input type="checkbox" name="cat" value="kitchen"> Kitchen</label>
+          <label class="check"><input type="checkbox" name="cat" value="electrical_battery"> Chargers and batteries</label>
+          <label class="check"><input type="checkbox" name="cat" value="tools_outdoor"> Tools and outdoor</label>
+          <label class="check"><input type="checkbox" name="cat" value="sports_rec"> Sports and bikes</label>
+          <label class="check"><input type="checkbox" name="cat" value="home"> Home</label>
+          <label class="check"><input type="checkbox" name="cat" value="apparel"> Clothing</label>
+          <label class="check"><input type="checkbox" name="cat" value="appliance_fixture"> Appliances</label>
+        </div>
+      </fieldset>
+      <label class="check consent"><input type="checkbox" id="consent"> I agree that ClearToList can store my email address, the time I signed up and the categories I picked, to send me an invite code and, if I asked, recall alerts. Nothing else is stored, and you can ask for it to be deleted by replying to any email from us.</label>
+      <p class="field-error" id="emailErr" role="alert" hidden></p>
+      <div><button type="submit" class="primary" id="inviteBtn">Request an invite code</button></div>
+      <p class="form-ok" id="inviteOk" role="status" hidden></p>
+    </form>
+  </section>
+
   <section class="lookup" aria-labelledby="lookupH">
     <h2 id="lookupH">Look up a recall</h2>
     <p class="section-lede">Search by model number, UPC, brand or product name.</p>

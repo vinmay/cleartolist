@@ -60,7 +60,13 @@ function wireDrop(which) {
 function clearError() {
   $("#formErr").hidden = true; $("#inviteErr").hidden = true; $("#photoErr").hidden = true; $("#invite").removeAttribute("aria-invalid");
 }
-function formError(msg) { const e = $("#formErr"); e.textContent = msg; e.hidden = false; }
+function formError(msg) {
+  const e = $("#formErr"); e.textContent = msg; e.hidden = false;
+  if (/free scans are used up/i.test(msg)) {
+    const a = document.createElement("a"); a.href = "#invite-request"; a.textContent = "Request an invite code";
+    e.append(" ", a, ".");
+  }
+}
 function inviteError(msg) {
   const e = $("#inviteErr"); e.textContent = msg; e.hidden = false;
   $("#invite").setAttribute("aria-invalid", "true"); $("#invite").focus();
@@ -270,6 +276,26 @@ async function runBatch(e) {
   }
 }
 
+// --- invite request ------------------------------------------------------------------------------------------
+async function requestInvite(e) {
+  e.preventDefault();
+  const err = $("#emailErr"), ok = $("#inviteOk");
+  err.hidden = true; ok.hidden = true;
+  const email = $("#email").value.trim(), alerts = $("#alerts").checked;
+  const categories = alerts ? [...document.querySelectorAll('#cats input[name="cat"]:checked')].map((c) => c.value) : [];
+  const fail = (m) => { err.textContent = m; err.hidden = false; };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { fail("Enter your email address, like name@example.com."); $("#email").focus(); return; }
+  if (alerts && !categories.length) { fail("Pick at least one category for recall alerts, or untick the alerts box."); return; }
+  if (!$("#consent").checked) { fail("Tick the box to agree that we can store your email address for this."); $("#consent").focus(); return; }
+  $("#inviteBtn").disabled = true;
+  try {
+    const d = await api("/api/invite-requests", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, consent: true, alerts, categories, website: $("#website").value }) });
+    ok.textContent = d.message || "Thanks. We'll email you an invite code."; ok.hidden = false;
+    $("#inviteForm").reset(); $("#cats").hidden = true;
+  } catch (x) { fail(x.message); } finally { $("#inviteBtn").disabled = false; }
+}
+
 // --- lookup --------------------------------------------------------------------------------------------------
 async function search(q) {
   const out = $("#lookupOut");
@@ -323,6 +349,9 @@ document.addEventListener("DOMContentLoaded", () => {
   wireDrop("photo"); wireDrop("label");
   $("#invite").addEventListener("input", clearError);
   $("#scanForm").addEventListener("submit", runScan);
+  $("#inviteForm").addEventListener("submit", requestInvite);
+  ["#email", "#consent", "#alerts"].forEach((id) => $(id).addEventListener("input", () => { $("#emailErr").hidden = true; }));
+  $("#alerts").addEventListener("change", () => { $("#cats").hidden = !$("#alerts").checked; });
   document.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => runSample(b)));
   $("#batchPhotos").addEventListener("change", showBatchThumbs);
   $("#batchForm").addEventListener("submit", runBatch);

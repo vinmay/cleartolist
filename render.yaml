@@ -19,13 +19,25 @@ services:
         value: /tmp/demo.db
       - key: CTL_DEMO_DB_URL
         value: https://github.com/vinmay/cleartolist/releases/download/data-latest/demo.db
-      # Kill switch: photo uploads are off unless this is 1 (lookup stays on). The admin endpoint can flip it
-      # instantly at runtime without a redeploy (scripts/killswitch.py).
+      # Kill switch: photo uploads are off unless this is 1 (lookup stays on). Set in the dashboard, so a Blueprint
+      # sync never flips it; the admin endpoint can flip it instantly at runtime (scripts/killswitch.py).
       - key: CTL_UPLOADS_ENABLED
-        value: "0"
+        sync: false
       - key: CTL_INVITE_CODES
         sync: false
       - key: CTL_WORKER_SECRET
         sync: false
       - key: CTL_ADMIN_SECRET
         sync: false
+      # Invite requests (email, time, alert categories) live in the Postgres below; Render fills this in.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cleartolist-db
+          property: connectionString
+
+databases:
+  - name: cleartolist-db
+    plan: free
+    databaseName: cleartolist
+    user: cleartolist
+    ipAllowList: []  # no connections from outside Render; export goes through the signed admin endpoint

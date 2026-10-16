@@ -61,6 +61,10 @@ def client(db, monkeypatch):
     monkeypatch.setattr(server, "SCAN_LIMIT", security.RateLimiter(5, 600))
     monkeypatch.setattr(server, "LOOKUP_LIMIT", security.RateLimiter(30, 60))
     monkeypatch.setattr(server, "QUOTA", server.DailyQuota())
+    from demo.store import Store
+
+    monkeypatch.setattr(server, "STORE", Store("sqlite://memory"))
+    monkeypatch.setattr(server, "SIGNUP_LIMIT", security.RateLimiter(5, 3600))
     return TestClient(server.app)
 
 
@@ -424,3 +428,59 @@ def test_sample_scans_obey_kill_switch_rate_limit_queue_and_worker(client, monke
     server.STATE["worker_seen"] = 0.0
     assert client.post("/api/samples/nomatch", headers={"X-Forwarded-For": "6.6.6.7"}).status_code == 503
     assert client.post("/api/samples/check", headers={"Origin": "https://evil.example"}).status_code == 403
+
+
+# --- invite requests -----------------------------------------------------------------------------------------------
+
+def ask(c, ip="1.2.3.4", **kw):
+    body = {"email": "Seller@Example.com", "consent": True} | kw
+    return c.post("/api/invite-requests", json=body, headers={"X-Forwarded-For": ip})
+
+
+def test_invite_request_stores_only_email_time_and_categories(client):
+    r = ask(client, alerts=True, categories=["stroller", "toy"])
+    assert r.status_code == 202 and r.json()["ok"]
+    rows = server.STORE.all()
+    assert len(rows) == 1 and rows[0][0] == "seller@example.com" and rows[0][3] == "stroller,toy"
+    assert len(rows[0]) == 4  # email, created_at, alerts, categories: no address, no user agent
+
+
+def test_honeypot_looks_fine_but_stores_nothing(client):
+    r = ask(client, website="http://spam.example")
+    assert r.status_code == 202 and r.json()["ok"] and server.STORE.all() == []
+
+
+def test_invite_request_needs_consent_valid_email_and_known_categories(client):
+    assert ask(client, consent=False).status_code == 400
+    assert ask(client, email="not-an-email").status_code == 400
+    assert ask(client, email="a@b.c<script>").status_code == 400
+    assert ask(client, alerts=True, categories=["guns"]).status_code == 400
+    assert ask(client, alerts=True, categories=[]).status_code == 400
+    assert client.post("/api/invite-requests", json={"email": "a@b.co", "consent": True, "ip": "x"}).status_code == 400
+    assert server.STORE.all() == []
+
+
+def test_invite_requests_are_rate_limited_and_same_origin(client):
+    for _ in range(5):
+        assert ask(client).status_code == 202
+    assert ask(client).status_code == 429
+    r = client.post("/api/invite-requests", json={"email": "a@b.co", "consent": True},
+                    headers={"Origin": "https://evil.example", "X-Forwarded-For": "8.8.4.4"})
+    assert r.status_code == 403
+
+
+def test_invite_requests_closed_without_a_database(client, monkeypatch):
+    from demo.store import Store
+
+    monkeypatch.setattr(server, "STORE", Store(None))
+    r = ask(client)
+    assert r.status_code == 503 and "closed" in r.json()["error"]
+    assert client.get("/api/meta").json()["invite_requests"] is False
+
+
+def test_signup_export_needs_the_admin_signature(client):
+    ask(client)
+    assert client.get("/admin/invite-requests").status_code == 401
+    assert signed(client, "GET", "/admin/invite-requests", secret=WORKER).status_code == 401
+    r = signed(client, "GET", "/admin/invite-requests", secret=ADMIN)
+    assert r.status_code == 200 and "seller@example.com" in r.text

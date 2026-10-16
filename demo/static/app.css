@@ -264,3 +264,19 @@ footer.site p { margin: 0 0 6px; max-width: 70ch; }
 .sample img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; }
 .sample span { padding: 0 2px 2px; line-height: 1.25; }
 .credit { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+
+/* invite request */
+.invite-form { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); padding: 20px; margin-top: 16px; display: grid; gap: 10px; max-width: 720px; }
+.invite-form > label:first-child { font-weight: 700; }
+.invite-form input[type=email] { font: inherit; color: var(--ink); background: var(--surface); border: 1.5px solid #aeb8c4; border-radius: var(--r-control); padding: 10px 12px; min-height: 46px; max-width: 460px; }
+.invite-form .check { color: var(--ink); margin-top: 4px; align-items: flex-start; }
+.invite-form .consent { font-size: 15px; color: var(--muted); }
+.invite-form .check input { margin-top: 3px; flex: none; }
+.cats { border: 1px solid var(--line); border-radius: var(--r-control); padding: 10px 14px; margin: 0; }
+.cats legend { font-weight: 700; padding: 0 4px; }
+.cat-grid { display: grid; grid-template-columns: 1fr; gap: 2px 16px; }
+.cat-grid .check { margin-top: 6px; font-size: 15px; }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.form-ok { margin: 0; font-weight: 600; color: var(--ink); }
+@media (min-width: 640px) { .cat-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .cat-grid { grid-template-columns: 1fr 1fr 1fr; } }
