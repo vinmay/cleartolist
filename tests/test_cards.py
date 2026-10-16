@@ -18,6 +18,7 @@ def test_heading_handles_recalled_by_and_missing_brand():
     assert heading("Pool and Patio Umbrellas Recalled Due to Injury Hazard (Recall Alert)", ["Umbrosa NV"]) == \
         "Umbrosa NV Pool and Patio Umbrellas"
     assert heading("Amazon Recalls Amazon Basics Dumbbells Due to Impact Hazard") == "Amazon Basics Dumbbells"
+    assert heading("Rheem Recalls to Repair Water Heaters") == "Rheem Water Heaters"
 
 
 def test_heading_falls_back_to_a_short_title():

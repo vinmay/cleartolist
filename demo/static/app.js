@@ -354,20 +354,12 @@ async function search(q) {
 }
 
 // --- examples ------------------------------------------------------------------------------------------------
-const OUTCOME = {
-  "confirmed the right recall": "The label confirmed the right recall.",
-  "confirmed a different recall": "The label confirmed a different recall.",
-  "right recall in the shortlist": "The right recall was among the closest recalls shown.",
-  "right recall not in the shortlist": "The right recall wasn't among the closest recalls shown.",
-  "missed": "Missed: the scan didn't show the right recall.",
-};
 async function gallery() {
   const g = $("#gallery");
   try {
     const set = g.dataset.set || "curated";
     const items = (await api(`/api/gallery?set=${encodeURIComponent(set)}`)).filter((s) => s.item);
     if (!items.length) { g.innerHTML = `<p class="muted">No example scans yet.</p>`; return; }
-    if (set === "sample") items.sort((a, b) => (b.kind === "pair") - (a.kind === "pair"));
     g.innerHTML = items.map((s) => {
       const fin = s.final || s.item;
       const matched = fin.verdict !== "NO MATCH FOUND";  // a no-match card never presents a recall as its match
@@ -376,10 +368,8 @@ async function gallery() {
       return `<article class="example">
         <div class="shot"><img src="${safeUrl(s.photo_url)}" alt="Item photo">${sticker(fin.verdict, true)}</div>
         <div>
-          ${s.kind === "pair" ? `<div class="label-thumb"><img src="${safeUrl(s.label_photo_url)}" alt="Label photo"><span>Item photo plus this label photo</span></div>` : ""}
+          ${s.kind === "pair" ? `<div class="label-thumb"><img src="${safeUrl(s.label_photo_url)}" alt="Label photo"><span>With a photo of its label</span></div>` : ""}
           ${m ? rcard(m, { compact: true, codes: m.code ? m.code.split(", ") : [] }) : `<h3 class="rcard-title">No match in CPSC recalls</h3>${suggestions}`}
-          <p>${esc(s.truth ? OUTCOME[s.truth.outcome] || "" : "")}</p>
-          <p class="kind">${s.set === "curated" ? esc(s.photo_source) : "Random sample from the test photos, simulated from held-out CPSC photos."}</p>
         </div></article>`;
     }).join("");
   } catch (e) { g.innerHTML = `<p class="muted">Example scans couldn't be loaded.</p>`; }
@@ -393,7 +383,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   if ($("#gallery")) gallery();
   if ($("#shared")) showSharedRecall();
-  if (!$("#scanForm")) return;  // pages without the scanner (how-we-measured) only need the gallery
+  if (!$("#scanForm")) return;  // pages without the scanner only need the gallery
   try { $("#invite").value = localStorage.getItem("ctl-invite") || ""; } catch (e) { /* storage unavailable */ }
   wireDrop("photo"); wireDrop("label");
   $("#invite").addEventListener("input", clearError);
@@ -408,6 +398,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   api("/api/meta").then((m) => {
     recallCount = Number(m.recall_count) || 0;
+    if (recallCount && $("#recallInfo")) {
+      const when = m.updated_at ? `, last update ${fmtDate(m.updated_at)}` : "";
+      $("#recallInfo").textContent = `Your photos are checked against ${recallCount.toLocaleString("en-US")} U.S. CPSC recalls since 2015, updated nightly${when}.`;
+    }
     if (m.invite_requests === false) {
       $("#inviteBtn").disabled = true;
       const ok = $("#inviteOk"); ok.textContent = "Invite requests open soon. Free scans and the recall lookup work now."; ok.hidden = false;

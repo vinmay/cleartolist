@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import time
 from pathlib import Path
 
 DEMO_SCHEMA = """
@@ -58,7 +59,8 @@ def build(src: Path, out: Path) -> int:
                   [r for r in s.execute("SELECT recall_id, upc FROM upcs") if r[0] in keep])
     latest = s.execute("SELECT MAX(recall_date) FROM recalls").fetchone()[0]
     d.executemany("INSERT INTO meta VALUES (?,?)", [("recall_count", str(n)), ("latest_recall_date", latest or ""),
-                                                   ("source", "U.S. CPSC Recalls API, saferproducts.gov")])
+                                                   ("source", "U.S. CPSC Recalls API, saferproducts.gov"),
+                                                   ("updated_at", time.strftime("%Y-%m-%d", time.gmtime()))])
     d.commit()
     d.execute("VACUUM")
     d.close()

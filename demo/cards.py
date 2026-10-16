@@ -33,6 +33,7 @@ def _clean(s: str) -> str:
 
 
 def _join(brand: str, product: str) -> str:
+    product = re.sub(r"^to (?:Repair|Replace|Refund|Remedy) ", "", product)
     """Brand + product in CPSC's own capitalization (product names are often proper nouns), without repeating the
     brand when the product already starts with it ("Amazon" + "Amazon Basics Dumbbells")."""
     if product.lower().startswith(brand.lower()):

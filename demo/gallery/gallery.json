@@ -4,7 +4,6 @@
   "kind": "pair",
   "photo_url": "https://www.cpsc.gov/s3fs-public/Surge XL Quad.png",
   "label_photo_url": "https://www.cpsc.gov/s3fs-public/label model 8803-31.jpg",
-  "photo_source": "Selected example: a CPSC recall photo of the toy, scanned with its label photo.",
   "item": {
    "verdict": "NO MATCH FOUND",
    "recalls": [],
@@ -26,11 +25,6 @@
    "seconds": 5.56,
    "note": ""
   },
-  "truth": {
-   "title": "Dynacraft Recalls Ride-On Toys Due to Fall and Crash Hazards",
-   "url": "https://www.cpsc.gov/Recalls/2017/Dynacraft-Recalls-Ride-On-Toys",
-   "outcome": "confirmed the right recall"
-  },
   "set": "curated"
  },
  {
@@ -38,7 +32,6 @@
   "kind": "single",
   "set": "curated",
   "photo_url": "https://www.cpsc.gov/s3fs-public/p2_8.png",
-  "photo_source": "Selected example: a CPSC recall photo of the toy, scanned on its own, without a label photo.",
   "item": {
    "verdict": "POSSIBLE MATCH",
    "recalls": [
@@ -64,11 +57,6 @@
    "read_summary": "stuffed animal",
    "seconds": 3.13,
    "note": ""
-  },
-  "truth": {
-   "title": "Huffy Corporation Recalls Ride-On Toys Due to Fall and Injury Hazards",
-   "url": "https://www.cpsc.gov/Recalls/2022/Huffy-Corporation-Recalls-Ride-On-Toys-Due-to-Fall-and-Injury-Hazards",
-   "outcome": "right recall in the shortlist"
   }
  },
  {
@@ -76,7 +64,6 @@
   "kind": "single",
   "set": "curated",
   "photo_url": "/static/samples/nomatch-item.jpg",
-  "photo_source": "Selected example: a toy car that isn't in any CPSC recall (photo: Jebulon, CC0, via Wikimedia Commons).",
   "item": {
    "verdict": "NO MATCH FOUND",
    "recalls": [
@@ -103,341 +90,5 @@
    "seconds": 15.4,
    "note": ""
   }
- },
- {
-  "id": "pair-8487",
-  "kind": "pair",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/Picture3_37.png",
-  "label_photo_url": "https://www.cpsc.gov/s3fs-public/Picture4_21.png",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "socks",
-   "seconds": 3.89,
-   "note": ""
-  },
-  "final": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "dog coat, 0015863F 1677190-06/18 (Target #)",
-   "seconds": 5.72,
-   "note": "Read 0015863F 1677190-06/ on the label; that isn't listed in any CPSC recall in this database."
-  },
-  "truth": {
-   "title": "Target Recalls Toddler Boots Due to Choking Hazard",
-   "url": "https://www.cpsc.gov/Recalls/2019/Target-Recalls-Toddler-Boots-Due-to-Choking-Hazard",
-   "outcome": "missed"
-  },
-  "set": "sample"
- },
- {
-  "id": "pair-9381",
-  "kind": "pair",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/p2_8.png",
-  "label_photo_url": "https://www.cpsc.gov/s3fs-public/p4_2.png",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "POSSIBLE MATCH",
-   "recalls": [
-    {
-     "title": "Huffy Corporation Recalls Ride-On Toys Due to Fall and Injury Hazards",
-     "url": "https://www.cpsc.gov/Recalls/2022/Huffy-Corporation-Recalls-Ride-On-Toys-Due-to-Fall-and-Injury-Hazards",
-     "image_url": "https://www.cpsc.gov/s3fs-public/p3_5.png",
-     "code": ""
-    },
-    {
-     "title": "Kids Preferred Recalls Wind-Up Musical Toys Due to Choking Hazard",
-     "url": "https://www.cpsc.gov/Recalls/2018/Kids-Preferred-Recalls-Wind-Up-Musical-Toys",
-     "image_url": "https://www.cpsc.gov/s3fs-public/pic15.jpg",
-     "code": ""
-    },
-    {
-     "title": "Kreative Kids Recalls Children's Robes Due to Violation of Federal Flammability Standard",
-     "url": "https://www.cpsc.gov/Recalls/2017/Kreative-Kids-Recalls-Childrens-Robes",
-     "image_url": "https://www.cpsc.gov/s3fs-public/dog robe.jpg",
-     "code": ""
-    }
-   ],
-   "read_summary": "stuffed animal",
-   "seconds": 3.13,
-   "note": ""
-  },
-  "final": {
-   "verdict": "POSSIBLE MATCH",
-   "recalls": [
-    {
-     "title": "Huffy Corporation Recalls Ride-On Toys Due to Fall and Injury Hazards",
-     "url": "https://www.cpsc.gov/Recalls/2022/Huffy-Corporation-Recalls-Ride-On-Toys-Due-to-Fall-and-Injury-Hazards",
-     "image_url": "https://www.cpsc.gov/s3fs-public/p3_5.png",
-     "code": ""
-    },
-    {
-     "title": "Kids Preferred Recalls Wind-Up Musical Toys Due to Choking Hazard",
-     "url": "https://www.cpsc.gov/Recalls/2018/Kids-Preferred-Recalls-Wind-Up-Musical-Toys",
-     "image_url": "https://www.cpsc.gov/s3fs-public/pic15.jpg",
-     "code": ""
-    },
-    {
-     "title": "Kreative Kids Recalls Children's Robes Due to Violation of Federal Flammability Standard",
-     "url": "https://www.cpsc.gov/Recalls/2017/Kreative-Kids-Recalls-Childrens-Robes",
-     "image_url": "https://www.cpsc.gov/s3fs-public/dog robe.jpg",
-     "code": ""
-    }
-   ],
-   "read_summary": "baby lounger, 8359476123456",
-   "seconds": 4.31,
-   "note": "Read 8359476123456 on the label; that isn't listed in any CPSC recall in this database."
-  },
-  "truth": {
-   "title": "Huffy Corporation Recalls Ride-On Toys Due to Fall and Injury Hazards",
-   "url": "https://www.cpsc.gov/Recalls/2022/Huffy-Corporation-Recalls-Ride-On-Toys-Due-to-Fall-and-Injury-Hazards",
-   "outcome": "right recall in the shortlist"
-  },
-  "set": "sample"
- },
- {
-  "id": "pair-10828",
-  "kind": "pair",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/shein-michley-3.png",
-  "label_photo_url": "https://www.cpsc.gov/s3fs-public/shein-michley-4.png",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "POSSIBLE MATCH",
-   "recalls": [
-    {
-     "title": "SHEIN Distribution Corporation Recalls Michley Children's Pajamas Due to Risk of Serious Injury or Death from Burn Hazard; Violate Mandatory Standard for Children's Sleepwear",
-     "url": "https://www.cpsc.gov/Recalls/2026/SHEIN-Distribution-Corporation-Recalls-Michley-Childrens-Pajamas-Due-to-Risk-of-Serious-Injury-or-Death-from-Burn-Hazard-Violate-Mandatory-Standard-for-Childrens-Sleepwear",
-     "image_url": "https://www.cpsc.gov/s3fs-public/shein-michley-1.png",
-     "code": ""
-    },
-    {
-     "title": "NewCosplay Children's Sleepwear Recalled Due to Violation of Federal Flammability Standards and Burn Hazard; Imported by Weihai Juanhai Decoration Material; Sold Exclusively at Amazon.com",
-     "url": "https://www.cpsc.gov/Recalls/2023/NewCosplay-Childrens-Sleepwear-Recalled-Due-to-Violation-of-Federal-Flammability-Standards-and-Burn-Hazard-Imported-by-Weihai-Juanhai-Decoration-Material-Sold-Exclusively-at-Amazon-com",
-     "image_url": "https://www.cpsc.gov/s3fs-public/RecalledWeihaiJuanhaiDecorationMaterialNewCosplaychildrenssleepwearPinkpig.jpg",
-     "code": ""
-    },
-    {
-     "title": "NewCosplay Children's Sleepwear Recalled Due to Violation of Federal Flammability Standards and Burn Hazard; Imported by Shanghai Jing Cheng Landscape Engineering Company; Sold Exclusively at Amazon.com",
-     "url": "https://www.cpsc.gov/Recalls/2023/NewCosplay-Childrens-Sleepwear-Recalled-Due-to-Violation-of-Federal-Flammability-Standards-and-Burn-Hazard-Imported-by-Shanghai-Jing-Cheng-Landscape-Engineering-Company-Sold-Exclusively-at-Amazon-com",
-     "image_url": "https://www.cpsc.gov/s3fs-public/RecalledShanghaiJingChengLandscapeEngineeringCompanyNewCosplaychildrenssleepwearpinkpig.jpg",
-     "code": ""
-    }
-   ],
-   "read_summary": "sweatpants",
-   "seconds": 3.22,
-   "note": ""
-  },
-  "final": {
-   "verdict": "POSSIBLE MATCH",
-   "recalls": [
-    {
-     "title": "SHEIN Distribution Corporation Recalls Michley Children's Pajamas Due to Risk of Serious Injury or Death from Burn Hazard; Violate Mandatory Standard for Children's Sleepwear",
-     "url": "https://www.cpsc.gov/Recalls/2026/SHEIN-Distribution-Corporation-Recalls-Michley-Childrens-Pajamas-Due-to-Risk-of-Serious-Injury-or-Death-from-Burn-Hazard-Violate-Mandatory-Standard-for-Childrens-Sleepwear",
-     "image_url": "https://www.cpsc.gov/s3fs-public/shein-michley-1.png",
-     "code": ""
-    },
-    {
-     "title": "NewCosplay Children's Sleepwear Recalled Due to Violation of Federal Flammability Standards and Burn Hazard; Imported by Weihai Juanhai Decoration Material; Sold Exclusively at Amazon.com",
-     "url": "https://www.cpsc.gov/Recalls/2023/NewCosplay-Childrens-Sleepwear-Recalled-Due-to-Violation-of-Federal-Flammability-Standards-and-Burn-Hazard-Imported-by-Weihai-Juanhai-Decoration-Material-Sold-Exclusively-at-Amazon-com",
-     "image_url": "https://www.cpsc.gov/s3fs-public/RecalledWeihaiJuanhaiDecorationMaterialNewCosplaychildrenssleepwearPinkpig.jpg",
-     "code": ""
-    },
-    {
-     "title": "NewCosplay Children's Sleepwear Recalled Due to Violation of Federal Flammability Standards and Burn Hazard; Imported by Shanghai Jing Cheng Landscape Engineering Company; Sold Exclusively at Amazon.com",
-     "url": "https://www.cpsc.gov/Recalls/2023/NewCosplay-Childrens-Sleepwear-Recalled-Due-to-Violation-of-Federal-Flammability-Standards-and-Burn-Hazard-Imported-by-Shanghai-Jing-Cheng-Landscape-Engineering-Company-Sold-Exclusively-at-Amazon-com",
-     "image_url": "https://www.cpsc.gov/s3fs-public/RecalledShanghaiJingChengLandscapeEngineeringCompanyNewCosplaychildrenssleepwearpinkpig.jpg",
-     "code": ""
-    }
-   ],
-   "read_summary": "sweater, Michael",
-   "seconds": 3.7,
-   "note": "No model number or UPC could be read on the label."
-  },
-  "truth": {
-   "title": "SHEIN Distribution Corporation Recalls Michley Children's Pajamas Due to Risk of Serious Injury or Death from Burn Hazard; Violate Mandatory Standard for Children's Sleepwear",
-   "url": "https://www.cpsc.gov/Recalls/2026/SHEIN-Distribution-Corporation-Recalls-Michley-Childrens-Pajamas-Due-to-Risk-of-Serious-Injury-or-Death-from-Burn-Hazard-Violate-Mandatory-Standard-for-Childrens-Sleepwear",
-   "outcome": "right recall in the shortlist"
-  },
-  "set": "sample"
- },
- {
-  "id": "pair-8201",
-  "kind": "pair",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/image001.jpg",
-  "label_photo_url": "https://www.cpsc.gov/s3fs-public/image004.jpg",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "jacket",
-   "seconds": 2.79,
-   "note": ""
-  },
-  "final": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "t-shirt",
-   "seconds": 5.62,
-   "note": "No model number or UPC could be read on the label."
-  },
-  "truth": {
-   "title": "One Stop Shop Recalls Children's Pajamas Due to Violation of Federal Flammability Standard: Sold Exclusively at Foreman Mills",
-   "url": "https://www.cpsc.gov/Recalls/2018/One-Stop-Shop-Recalls-Childrens-Pajamas-Due-to-Violation-of-Federal-Flammability-Standard-Sold-Exclusively-at-Foreman-Mills",
-   "outcome": "missed"
-  },
-  "set": "sample"
- },
- {
-  "id": "single-7805",
-  "kind": "single",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/Recall.2016.16228.16228b.jpg",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "necklace",
-   "seconds": 3.73,
-   "note": ""
-  },
-  "truth": {
-   "title": "Things Remembered Recalls Children's Jewelry Due to Violation of Lead Standard",
-   "url": "https://www.cpsc.gov/Recalls/2016/Things-Remembered-Recalls-Childrens-Jewelry",
-   "outcome": "missed"
-  },
-  "set": "sample"
- },
- {
-  "id": "single-9084",
-  "kind": "single",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/Picture3_13.jpg",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "toy car, 1234567890123",
-   "seconds": 3.46,
-   "note": ""
-  },
-  "truth": {
-   "title": "Blue Star Trading Recalls Children's Fishing Toy Games Due to Violation of Federal Lead Content Ban; Lead Poisoning Hazard; Sold Exclusively on Amazon.com (Recall Alert)",
-   "url": "https://www.cpsc.gov/Recalls/2021/Blue-Star-Trading-Recalls-Childrens-Fishing-Toy-Games-Due-to-Violation-of-Federal-Lead-Content-Ban-Lead-Poisoning-Hazard-Sold-Exclusively-on-Amazon-com-Recall-Alert",
-   "outcome": "missed"
-  },
-  "set": "sample"
- },
- {
-  "id": "single-9385",
-  "kind": "single",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/pic1_89.png",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "stroller",
-   "seconds": 3.12,
-   "note": ""
-  },
-  "truth": {
-   "title": "UPPAbaby Recalls RIDGE Jogging Strollers Due to Fingertip Amputation Hazard; One Injury to Child Reported",
-   "url": "https://www.cpsc.gov/Recalls/2022/UPPAbaby-Recalls-RIDGE-Jogging-Strollers-Due-to-Fingertip-Amputation-Hazard-One-Injury-to-Child-Reported",
-   "outcome": "missed"
-  },
-  "set": "sample"
- },
- {
-  "id": "single-8564",
-  "kind": "single",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/2_15.jpg",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "backpack",
-   "seconds": 34.85,
-   "note": ""
-  },
-  "truth": {
-   "title": "Revelate Designs Recalls Bicycle Seat Bags Due to Crash, Injury Hazards",
-   "url": "https://www.cpsc.gov/Recalls/2019/Revelate-Designs-Recalls-Bicycle-Seat-Bags-Due-to-Crash-Injury-Hazards",
-   "outcome": "missed"
-  },
-  "set": "sample"
- },
- {
-  "id": "single-9720",
-  "kind": "single",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/DreamAway-Mattress.png",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "POSSIBLE MATCH",
-   "recalls": [
-    {
-     "title": "FXI Recalls Novaform ComfortGrande and DreamAway Mattresses Due to Risk of Mold Exposure; Sold Exclusively at Costco (Recall Alert)",
-     "url": "https://www.cpsc.gov/Recalls/2023/FXI-Recalls-Novaform-ComfortGrande-and-DreamAway-Mattresses-Due-to-Risk-of-Mold-Exposure-Sold-Exclusively-at-Costco-Recall-Alert",
-     "image_url": "https://www.cpsc.gov/s3fs-public/ComfortGrande-Mattress.png",
-     "code": ""
-    },
-    {
-     "title": "Regfear Recalls BedsPick Mattresses Due to Risk of Serious Injury or Death from Fire; Violate Mandatory Flammability Standard for Mattresses",
-     "url": "https://cpsc.gov/Recalls/2026/Regfear-Recalls-BedsPick-Mattresses-Due-to-Risk-of-Serious-Injury-or-Death-from-Fire-Violate-Mandatory-Flammability-Standard-for-Mattresses",
-     "image_url": "https://www.cpsc.gov/s3fs-public/Picture1_179.png",
-     "code": ""
-    },
-    {
-     "title": "Amazon Recalls AmazonBasics Mattresses Due to Violation of Federal Flammability Standard (Recall Alert)",
-     "url": "https://www.cpsc.gov/Recalls/2022/Amazon-Recalls-AmazonBasics-Mattresses-Due-to-Violation-of-Federal-Flammability-Standard-Recall-Alert",
-     "image_url": "https://www.cpsc.gov/s3fs-public/pic1_25.png",
-     "code": ""
-    }
-   ],
-   "read_summary": "bedding, novaform",
-   "seconds": 6.61,
-   "note": ""
-  },
-  "truth": {
-   "title": "FXI Recalls Novaform ComfortGrande and DreamAway Mattresses Due to Risk of Mold Exposure; Sold Exclusively at Costco (Recall Alert)",
-   "url": "https://www.cpsc.gov/Recalls/2023/FXI-Recalls-Novaform-ComfortGrande-and-DreamAway-Mattresses-Due-to-Risk-of-Mold-Exposure-Sold-Exclusively-at-Costco-Recall-Alert",
-   "outcome": "right recall in the shortlist"
-  },
-  "set": "sample"
- },
- {
-  "id": "single-7751",
-  "kind": "single",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/Recall.2016.16177.16177a.jpg",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "portable speaker, 1903642875113",
-   "seconds": 6.07,
-   "note": ""
-  },
-  "truth": {
-   "title": "Rheem Recalls to Repair Water Heaters Due to Fire and Burn Hazards; Sold Exclusively at Home Depot",
-   "url": "https://www.cpsc.gov/Recalls/2016/Rheem-Recalls-to-Repair-Water-Heaters",
-   "outcome": "missed"
-  },
-  "set": "sample"
- },
- {
-  "id": "single-10722",
-  "kind": "single",
-  "photo_url": "https://www.cpsc.gov/s3fs-public/Picture15.gif",
-  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
-  "item": {
-   "verdict": "NO MATCH FOUND",
-   "recalls": [],
-   "read_summary": "portable speaker, 1234567890123",
-   "seconds": 4.66,
-   "note": ""
-  },
-  "truth": {
-   "title": "Fengrong Tool Recalls Pressure Washers Due to Serious Risk of Injury or Death from Shock and Electrocution Hazards",
-   "url": "https://www.cpsc.gov/Recalls/2026/Fengrong-Tool-Recalls-Pressure-Washers-Due-to-Serious-Risk-of-Injury-or-Death-from-Shock-and-Electrocution-Hazards",
-   "outcome": "missed"
-  },
-  "set": "sample"
  }
 ]
