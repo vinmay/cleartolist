@@ -203,6 +203,7 @@ function renderResult(res, hadLabel) {
   }
   h += reportButtons();
   report = { checkedAt: new Date(), items: [{ name: (lastItem && lastItem.file && lastItem.file.name) || (lastItem && lastItem.name) || "item photo", photo, result: res }] };
+  h += invitePrompt();
   h += `<div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div>`;
   h += `</div>`;
   show(h);
@@ -375,6 +376,12 @@ function printReport() {
     <p class="fine">Screening aid only, not legal advice. "No match found" means no match in U.S. CPSC recalls, not that the item is safe. Check cpsc.gov.</p>`;
   window.print();
 }
+// A short invite ask under results, only for people without a code (the daily limit is what a code skips).
+function invitePrompt() {
+  if ($("#invite").value.trim()) return "";
+  return `<p class="invite-prompt">Checking a whole haul? <a href="#invite-request">Get an invite code</a> to skip the daily limit.</p>`;
+}
+
 function reportButtons() {
   return `<div class="report-actions"><button type="button" class="secondary" data-report="csv">Download report (CSV)</button>
     <button type="button" class="secondary" data-report="print">Print or save as PDF</button></div>`;
@@ -393,7 +400,7 @@ function renderBatch(files, items) {
   show(`<div class="panel batch-report"><p class="summary">${pull} to pull, ${check} to check with a label photo, ${none} with no match found.</p>
     <div class="report">${items.map((r, i) => `<div class="item"><img src="${batchUrls[i] || ""}" alt="Photo ${i + 1}">
       <div><span class="tag t-${key(r.verdict)}">${esc(STICKER[r.verdict])}</span>${line(r)}</div></div>`).join("")}</div>
-    ${reportButtons()}</div>`);
+    ${reportButtons()}${invitePrompt()}</div>`);
   report = { checkedAt: new Date(), items: items.map((r, i) => ({ name: files[i] ? files[i].name : `Photo ${i + 1}`, photo: batchUrls[i] || "", result: r })) };
 }
 async function runBatch(e) {
@@ -430,6 +437,20 @@ async function runBatch(e) {
   } finally {
     busy($("#scanBtn"), false);
   }
+}
+
+// --- slim bar with "Check another item", shown only once the scanner has scrolled out of view ------------------
+function setupMiniBar() {
+  const bar = $("#miniBar"), scanner = $("#scanForm");
+  if (!bar || !scanner || !("IntersectionObserver" in window)) return;
+  new IntersectionObserver(([e]) => {
+    const above = !e.isIntersecting && e.boundingClientRect.bottom < 0;  // scrolled past it, not before it
+    bar.hidden = !above; document.body.classList.toggle("has-minibar", above);
+  }, { threshold: 0 }).observe(scanner);
+  $("#miniCheck").addEventListener("click", () => {
+    $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    setTimeout(() => { const tab = $("[role=tab][aria-selected=true]"); if (tab) tab.focus({ preventScroll: true }); }, reduceMotion ? 0 : 400);
+  });
 }
 
 // --- collapsed label step and photo policy ----------------------------------------------------------------
@@ -599,6 +620,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => runSample(b)));
   $("#batchPhotos").addEventListener("change", showBatchThumbs);
   setupTabs();
+  setupMiniBar();
   window.addEventListener("afterprint", () => { $("#printReport").innerHTML = ""; });
   $("#removeLabel").addEventListener("click", closeLabelStep);
   $("#addLabelStep").addEventListener("click", () => { openLabelStep(); $("#dropLabel").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" }); $("#label").focus(); });

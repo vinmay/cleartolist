@@ -547,3 +547,15 @@ footer.site .fine a { color: var(--muted); }
 #panelModel .chips { margin-top: 8px; }
 .tabs [role=tab] { padding-left: 4px; padding-right: 4px; }
 .lookup-out { margin-top: 0; }
+
+/* slim bar after the scanner scrolls away */
+.minibar { position: fixed; top: 0; left: 0; right: 0; z-index: 20; background: rgba(232, 236, 240, 0.96);
+  border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+.minibar-in { max-width: 1120px; margin: 0 auto; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.minibar .wordmark { font-size: 18px; }
+.minibar .mark { width: 20px; height: 20px; }
+.minibar-btn { min-height: 40px; padding: 8px 16px; font-size: 15px; }
+@media (prefers-reduced-motion: no-preference) { .minibar:not([hidden]) { animation: barin 180ms ease-out; } }
+@keyframes barin { from { transform: translateY(-100%); } to { transform: none; } }
+#result, #invite-request { scroll-margin-top: 72px; }
+.invite-prompt { grid-column: 1 / -1; margin: 4px 0 0; font-size: 15px; color: var(--muted); }
