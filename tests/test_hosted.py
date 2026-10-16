@@ -669,3 +669,12 @@ def test_html_404_for_pages_and_json_404_for_the_api(client):
     assert r.status_code == 404 and r.json() == {"error": "No recall with that number."}
     r = client.get("/api/nope")
     assert r.status_code == 404 and r.headers["content-type"].startswith("application/json")
+
+
+def test_robots_and_sitemap(client):
+    r = client.get("/robots.txt")
+    assert r.status_code == 200 and "Allow: /" in r.text
+    assert "Sitemap: https://cleartolist.onrender.com/sitemap.xml" in r.text
+    r = client.get("/sitemap.xml")
+    assert r.headers["content-type"].startswith("application/xml")
+    assert all(f"<loc>https://cleartolist.onrender.com{p}</loc>" in r.text for p in ("/", "/privacy", "/terms"))
