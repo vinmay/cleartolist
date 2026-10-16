@@ -73,9 +73,16 @@ function inviteError(msg) {
 }
 
 // --- results -------------------------------------------------------------------------------------------------
-function show(html) {
+// Results render right below the scanner. While checking, the clicked control shows the state and the page stays
+// put; when the result arrives it scrolls into view (instantly if the device asks for reduced motion).
+function show(html, scroll = true) {
   const r = $("#result"); r.innerHTML = html; r.hidden = false;
-  r.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  if (scroll) requestAnimationFrame(() => r.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }));
+}
+function busy(btn, on, text = "Checking...") {
+  if (!btn) return;
+  if (on) { btn.dataset.label = btn.textContent; btn.textContent = text; btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.classList.add("is-busy"); }
+  else { if (btn.dataset.label) btn.textContent = btn.dataset.label; btn.disabled = false; btn.removeAttribute("aria-busy"); btn.classList.remove("is-busy"); }
 }
 function loading(wake) {
   return `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking for recalls...</strong></p>
@@ -230,12 +237,12 @@ async function runScan(e) {
   if (invite) fd.append("invite", invite);
   fd.append("photo", photo);
   if (label) fd.append("label", label);
-  $("#scanBtn").disabled = true;
-  show(loading(false));
+  busy($("#scanBtn"), true);
+  show(loading(false), false);
   try {
     const { job } = await api("/api/jobs", { method: "POST", body: fd }, () => { $("#result").innerHTML = loading(true); });
     await pollJob(job, Boolean(label));
-  } catch (err) { scanFailed(err); } finally { $("#scanBtn").disabled = false; }
+  } catch (err) { scanFailed(err); } finally { busy($("#scanBtn"), false); }
 }
 
 async function runSample(btn) {
@@ -244,7 +251,7 @@ async function runSample(btn) {
   urls.photo = btn.dataset.photo;
   document.querySelectorAll(".sample").forEach((b) => { b.disabled = true; });
   btn.classList.add("is-loading"); btn.setAttribute("aria-busy", "true");
-  show(loading(false));
+  show(loading(false), false);
   try {
     const { job } = await api(`/api/samples/${encodeURIComponent(btn.dataset.sample)}`, { method: "POST" }, () => { $("#result").innerHTML = loading(true); });
     await pollJob(job, btn.dataset.sample === "recalled");
@@ -309,10 +316,10 @@ async function runBatch(e) {
   const fd = new FormData();
   if (invite) fd.append("invite", invite);
   files.forEach((f) => fd.append("photos", f));
-  $("#scanBtn").disabled = true;
+  busy($("#scanBtn"), true);
   const out = $("#result");
   const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 10 seconds a photo.</p>${woke ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
-  show(wait(false));
+  show(wait(false), false);
   try {
     const { job } = await api("/api/batches", { method: "POST", body: fd }, () => { out.innerHTML = wait(true); });
     const t0 = Date.now();
@@ -330,7 +337,7 @@ async function runBatch(e) {
     else if (err.status === 503 && /unavailable/i.test(err.message)) show(unavailable());
     else batchError(err.message);
   } finally {
-    $("#scanBtn").disabled = false;
+    busy($("#scanBtn"), false);
   }
 }
 
