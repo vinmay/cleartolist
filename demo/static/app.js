@@ -79,6 +79,8 @@ function show(html, scroll = true) {
   const r = $("#result"); r.innerHTML = html; r.hidden = false;
   if (scroll) requestAnimationFrame(() => r.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }));
 }
+// The bar says "Check an item" until there's a result on the page, then "Check another item".
+function markChecked() { const b = $("#miniCheck"); if (b) b.textContent = "Check another item"; }
 function busy(btn, on, text = "Checking...") {
   if (!btn) return;
   if (on) { btn.dataset.label = btn.textContent; btn.textContent = text; btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.classList.add("is-busy"); }
@@ -202,6 +204,7 @@ function renderResult(res, hadLabel) {
       ${strip(res.recalls, photo)}</div></div>`;
   }
   h += reportButtons();
+  markChecked();
   report = { checkedAt: new Date(), items: [{ name: (lastItem && lastItem.file && lastItem.file.name) || (lastItem && lastItem.name) || "item photo", photo, result: res }] };
   h += invitePrompt();
   h += `<div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div>`;
@@ -401,6 +404,7 @@ function renderBatch(files, items) {
     <div class="report">${items.map((r, i) => `<div class="item"><img src="${batchUrls[i] || ""}" alt="Photo ${i + 1}">
       <div><span class="tag t-${key(r.verdict)}">${esc(STICKER[r.verdict])}</span>${line(r)}</div></div>`).join("")}</div>
     ${reportButtons()}${invitePrompt()}</div>`);
+  markChecked();
   report = { checkedAt: new Date(), items: items.map((r, i) => ({ name: files[i] ? files[i].name : `Photo ${i + 1}`, photo: batchUrls[i] || "", result: r })) };
 }
 async function runBatch(e) {
@@ -525,6 +529,7 @@ async function search(q, btn) {
       show(`<div class="panel"><p class="lead">No recalls found for "${esc(q)}".</p><p class="muted">That doesn't mean the item is safe. Check the number on the label, try the brand alone, or take a photo instead.</p></div>`);
       return;
     }
+    markChecked();
     show(`<div class="panel"><p class="summary">${d.results.length === 1 ? "1 recall" : `${d.results.length} recalls`} for "${esc(q)}"</p>
       <div class="lookup-out">${d.results.map((x) => `<div class="row">
       ${x.image_urls[0] ? `<img src="${safeUrl(x.image_urls[0])}" alt="" loading="lazy">` : `<span class="noimg" aria-hidden="true"></span>`}
