@@ -22,12 +22,6 @@ It covers every in-scope CPSC consumer-product recall since 2015, and it's tuned
 
 **Try it: [cleartolist.onrender.com](https://cleartolist.onrender.com)**. Try a sample photo, or scan your own: there are free photo scans for everyone each day, and an invite code skips the daily limit. The recall lookup by model number, UPC, brand or name is always open.
 
-| The scanner on a phone | Label matches a recall: CONFIRMED | Looks similar: POSSIBLE MATCH |
-|---|---|---|
-| ![The scanner: step 1, a photo of the item; step 2, an optional photo of its label; an invite code; and a Check for recalls button](docs/screenshots/scanner-mobile.png) | ![A red Recalled sticker on the user's photo, with the recall photo, recall date, hazard, remedy and the matched model number](docs/screenshots/result-confirmed.png) | ![An amber Check the label sticker, with the three closest recalls to compare and a prompt to add a label photo](docs/screenshots/result-possible.png) |
-
-<sub>Screenshots show CPSC recall photos (U.S. government works) and simulated scans built from them. The play yard photo in the POSSIBLE MATCH example: "A crib, bassinet and changing table…" by [Famartin](https://commons.wikimedia.org/wiki/File:2022-11-20_23_49_56_A_crib,_bassinet_and_changing_table_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0); that screenshot is shared under the same license. Only the recall's inclined-sleeper accessory was recalled, and only its label could say whether this play yard came with one.</sub>
-
 ## How it works
 
 ### The service
