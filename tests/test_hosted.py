@@ -658,3 +658,14 @@ def test_favicons_are_served_and_named_routes_still_work(client):
     assert client.get("/apple-touch-icon.png").content.startswith(b"\x89PNG")
     assert client.get("/privacy").status_code == 200 and client.get("/healthz").status_code == 200
     assert 'rel="apple-touch-icon"' in client.get("/").text
+
+
+def test_html_404_for_pages_and_json_404_for_the_api(client):
+    r = client.get("/no-such-page")
+    assert r.status_code == 404 and r.headers["content-type"].startswith("text/html") and "Page not found" in r.text
+    r = client.get("/some/deeper/path")
+    assert r.status_code == 404 and "Page not found" in r.text
+    r = client.get("/api/recall/999")
+    assert r.status_code == 404 and r.json() == {"error": "No recall with that number."}
+    r = client.get("/api/nope")
+    assert r.status_code == 404 and r.headers["content-type"].startswith("application/json")

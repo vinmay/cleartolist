@@ -224,8 +224,14 @@ async def bad_request(_: Request, __: RequestValidationError) -> JSONResponse:
     return JSONResponse({"error": "Invalid request."}, status_code=400)  # never echo the input back
 
 
+_JSON_PREFIXES = ("/api/", "/worker/", "/admin/")
+
+
 @app.exception_handler(StarletteHTTPException)
-async def http_error(_: Request, e: StarletteHTTPException) -> JSONResponse:
+async def http_error(request: Request, e: StarletteHTTPException) -> Response:
+    """JSON errors for the API; a plain HTML page for anything else people open in a browser that isn't there."""
+    if e.status_code == 404 and not request.url.path.startswith(_JSON_PREFIXES):
+        return HTMLResponse((ROOT / "static" / "404.html").read_text(), status_code=404)
     return JSONResponse({"error": e.detail if isinstance(e.detail, str) else "Request failed."},
                         status_code=e.status_code, headers=getattr(e, "headers", None))
 

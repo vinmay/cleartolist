@@ -559,3 +559,6 @@ footer.site .fine a { color: var(--muted); }
 @keyframes barin { from { transform: translateY(-100%); } to { transform: none; } }
 #result, #invite-request { scroll-margin-top: 72px; }
 .invite-prompt { grid-column: 1 / -1; margin: 4px 0 0; font-size: 15px; color: var(--muted); }
+
+.notfound { min-height: 50vh; }
+.home-btn { display: inline-flex; align-items: center; text-decoration: none; margin-top: 8px; }
