@@ -835,3 +835,17 @@ async def admin_uploads(request: Request) -> dict[str, Any]:
         raise HTTPException(400, "Invalid request.") from e
     STATE["uploads_override"] = None if want is None else bool(want)
     return {"uploads_enabled": uploads_enabled(), "counts": dict(QUEUE.counts)}
+
+
+# Registered last so it never shadows a named route.
+_ROOT_FILES = {"favicon.ico": "image/x-icon", "favicon.svg": "image/svg+xml", "apple-touch-icon.png": "image/png",
+               "robots.txt": "text/plain; charset=utf-8", "sitemap.xml": "application/xml"}
+
+
+@app.get("/{name}", include_in_schema=False)
+def root_file(name: str) -> Response:
+    """Files browsers and crawlers ask for at the site root."""
+    if name not in _ROOT_FILES:
+        raise HTTPException(404, "Not found.")
+    return Response((ROOT / "static" / name).read_bytes(), media_type=_ROOT_FILES[name],
+                    headers={"Cache-Control": "public, max-age=86400"})

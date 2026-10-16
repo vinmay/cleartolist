@@ -650,3 +650,11 @@ def test_unavailable_and_kill_switch_give_the_same_answer(client, monkeypatch):
     b = client.post("/api/samples/check", headers={"X-Forwarded-For": "1.0.0.2"})
     assert (a.status_code, a.json()) == (b.status_code, b.json()) == (
         503, {"error": "Scanning is temporarily unavailable. Model number lookup still works."})
+
+
+def test_favicons_are_served_and_named_routes_still_work(client):
+    assert client.get("/favicon.ico").headers["content-type"] == "image/x-icon"
+    assert client.get("/favicon.svg").headers["content-type"].startswith("image/svg+xml")
+    assert client.get("/apple-touch-icon.png").content.startswith(b"\x89PNG")
+    assert client.get("/privacy").status_code == 200 and client.get("/healthz").status_code == 200
+    assert 'rel="apple-touch-icon"' in client.get("/").text
