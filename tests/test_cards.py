@@ -32,6 +32,10 @@ def test_hazard_tag_is_one_word_from_the_title_first():
     assert hazard_tag("X Recalls Y Due to Risk of Serious Injury or Death from Suffocation", []) == "Suffocation"
     assert hazard_tag("X Recalls Y", ["The heater can overheat, posing a fire hazard."]) == "Fire"
     assert hazard_tag("X Recalls Y", []) == "Injury"
+    dresser = "Bolton Furniture Recalls Dressers Due to Serious Tip-Over and Entrapment Hazards"
+    assert hazard_tag(dresser, []) == "Tip-over"
+    assert hazard_tag("X Recalls Chests Due to Risk of Serious Injury or Death from Tip-Over", []) == "Tip-over"
+    assert hazard_tag("X Recalls Pajamas Due to Violation of Federal Flammability Standard", []) == "Fire"
 
 
 def test_what_to_do_is_the_first_sentence_as_an_instruction():

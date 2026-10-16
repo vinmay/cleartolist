@@ -17,14 +17,24 @@ _RECALLED = re.compile(rf"^(?P<product>.+?) (?:Are |Is )?Recalled{_TAIL}")
 _MAKER = re.compile(r"(?:Made by|Manufactured by|Imported by|Distributed by|Sold (?:Exclusively )?(?:on|at|by) "
                     r"[^;]*? by) (?P<brand>[^;(),]+)", re.I)
 
-# First match wins, so the most specific hazards come first.
+# Hazard words, matched as word stems. The tag is the hazard the recall names first ("Due to Tip-Over and
+# Entrapment Hazards" is Tip-over), so CPSC's own ordering decides the primary hazard. Generic words only count
+# when nothing specific is named.
 _HAZARDS = [
-    ("suffocat", "Suffocation"), ("strangulat", "Strangulation"), ("entrap", "Entrapment"), ("chok", "Choking"),
-    ("drown", "Drowning"), ("tip-over", "Tip-over"), ("tip over", "Tip-over"), ("carbon monoxide", "Poisoning"),
-    ("poison", "Poisoning"), ("ingest", "Ingestion"), ("lead paint", "Lead"), ("lead content", "Lead"),
-    ("electrocut", "Shock"), ("shock", "Shock"), ("fire", "Fire"), ("burn", "Burns"), ("lacerat", "Cuts"),
-    ("amputat", "Amputation"), ("fall", "Falls"), ("crash", "Crash"), ("impact", "Impact"), ("injur", "Injury"),
+    (r"tip[- ]?over", "Tip-over"), (r"suffocat", "Suffocation"), (r"strangulat", "Strangulation"),
+    (r"entrap", "Entrapment"), (r"chok", "Choking"), (r"aspirat", "Choking"), (r"drown", "Drowning"),
+    (r"carbon monoxide", "Poisoning"), (r"poison", "Poisoning"), (r"child[- ]resistant", "Poisoning"),
+    (r"ingest", "Ingestion"), (r"magnet", "Ingestion"), (r"\blead\b", "Lead"), (r"electrocut", "Shock"),
+    (r"\bshock", "Shock"), (r"flammab", "Fire"), (r"\bfire", "Fire"), (r"\bburn", "Burns"), (r"scald", "Burns"),
+    (r"lacerat", "Cuts"), (r"amputat", "Amputation"), (r"\bfall", "Falls"), (r"crash", "Crash"),
+    (r"pinch", "Pinching"), (r"\bmold\b", "Mold"), (r"bacteri", "Infection"), (r"explos", "Explosion"),
 ]
+_GENERIC = [(r"impact", "Impact"), (r"injur", "Injury")]
+
+
+def _first_hazard(text: str, table: list[tuple[str, str]]) -> str | None:
+    hits = [(m.start(), tag) for rx, tag in table for m in [re.search(rx, text)] if m]
+    return min(hits)[1] if hits else None
 
 
 def _clean(s: str) -> str:
@@ -67,9 +77,13 @@ def hazard_tag(title: str, hazards: list[str]) -> str:
     t = (title or "").lower()
     focus = t.split(" due to ", 1)[1] if " due to " in t else ""
     for text in (focus, " ".join(hazards).lower(), t):
-        for key, tag in _HAZARDS:
-            if key in text:
-                return tag
+        tag = _first_hazard(text, _HAZARDS)
+        if tag:
+            return tag
+    for text in (focus, " ".join(hazards).lower(), t):
+        tag = _first_hazard(text, _GENERIC)
+        if tag:
+            return tag
     return "Injury"
 
 
