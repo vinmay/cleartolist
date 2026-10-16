@@ -28,6 +28,7 @@
 <a class="skip" href="#scanner">Skip to the scanner</a>
 <header class="site">
   <a class="brand" href="/" aria-label="ClearToList home"><span class="mark" aria-hidden="true"></span><span class="wordmark">ClearToList</span></a>
+  <a class="header-link" href="#lookup">Search by model number</a>
 </header>
 
 <main>
@@ -35,7 +36,7 @@
 
   <section class="hero" id="scanner" aria-labelledby="h1">
     <div class="intro">
-      <h1 id="h1">Is it recalled? Check before you list or buy.</h1>
+      <h1 id="h1">Is it recalled? Check before you list or&nbsp;buy.</h1>
       <p class="subline"><a href="https://www.cpsc.gov/Business--Manufacturing/Business-Education/ResaleThrift-Stores-Information-Center/Stop-Online-Sale-of-Recalled-Products">Selling a recalled product is illegal, even secondhand.</a></p>
     </div>
 
@@ -145,7 +146,7 @@
     </div>
   </section>
 
-  <section class="lookup" aria-labelledby="lookupH">
+  <section class="lookup" id="lookup" aria-labelledby="lookupH">
     <h2 id="lookupH">Look up a recall</h2>
     <p class="section-lede">Search by model number, UPC, brand or product name.</p>
     <form id="lookupForm" class="lookup-form" role="search">
@@ -197,7 +198,11 @@
           <label class="check"><input type="checkbox" name="cat" value="appliance_fixture"> Appliances</label>
         </div>
       </fieldset>
-      <label class="check consent"><input type="checkbox" id="consent"> I agree that ClearToList can store my email address, the time I signed up and the categories I picked, to send me an invite code and, if I asked, recall alerts. You can ask for it to be deleted by replying to any email from us. <a href="/privacy">Privacy</a> and <a href="/terms">terms</a>.</label>
+      <label class="check consent"><input type="checkbox" id="consent"> I agree that ClearToList can store my email for this.</label>
+      <details class="what-we-store">
+        <summary>What we store</summary>
+        <p>Your email address, the time you signed up and the categories you picked, used only to send you an invite code and, if you asked, recall alerts. Nothing else. To have it deleted, email <a href="mailto:cleartolist@gmail.com">cleartolist@gmail.com</a> or reply to any email from us. <a href="/privacy">Privacy</a> and <a href="/terms">terms</a>.</p>
+      </details>
       <p class="field-error" id="emailErr" role="alert" hidden></p>
       <p class="form-ok" id="inviteOk" role="status" hidden></p>
     </form>

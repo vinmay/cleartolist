@@ -522,3 +522,13 @@ details.invite summary::-webkit-details-marker { display: none; }
   .choose { color: var(--blue); font-weight: 600; font-size: 16px; cursor: pointer; padding: 4px 0; }
 }
 @media (max-width: 767px) { .mobile-pick { gap: 4px; } .take { min-height: 60px; } }
+
+h1 { text-wrap: balance; }
+.header-link { font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.header-link:hover { text-decoration: underline; }
+#lookup { scroll-margin-top: 16px; }
+.what-we-store { font-size: 14px; color: var(--muted); margin-top: -2px; }
+.what-we-store summary { cursor: pointer; color: var(--blue); font-weight: 600; width: fit-content; }
+.what-we-store p { margin: 6px 0 0; max-width: 62ch; }
+@media (max-width: 400px) { .header-link { font-size: 14px; } }
+@media (max-width: 400px) { header.site { gap: 10px; } .wordmark { font-size: 19px; } .header-link { font-size: 13px; text-align: right; } }
