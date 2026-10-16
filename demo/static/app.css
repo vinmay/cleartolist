@@ -500,3 +500,12 @@ details.invite summary::-webkit-details-marker { display: none; }
   .print-report .url { font-size: 9pt; color: #444; word-break: break-all; }
   .print-report .fine { font-size: 9pt; color: #444; margin-top: 12pt; }
 }
+
+.footer-links { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.doc { max-width: 720px; padding-top: 8px; padding-bottom: 24px; }
+.doc h1 { margin: 16px 0 4px; max-width: none; }
+.doc h2 { font-size: 21px; margin: 28px 0 6px; }
+.doc p, .doc li { max-width: 66ch; }
+.doc ul { padding-left: 20px; }
+.doc li { margin: 6px 0; }
+.updated { color: var(--muted); font-size: 15px; margin-top: 0; }

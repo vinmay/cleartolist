@@ -611,3 +611,11 @@ def test_site_title_and_preview_match_the_headline(client):
     shared = client.get("/recall/101").text
     head = shared.split("og:image")[0]
     assert "<title>Recalled: Acme Strollers</title>" in shared and "Is it recalled? Check before" not in head
+
+
+def test_privacy_and_terms_pages(client):
+    for path, words in (("/privacy", "We delete them"), ("/terms", "No guarantee")):
+        r = client.get(path)
+        assert r.status_code == 200 and words in r.text and "cleartolist@gmail.com" in r.text
+    home = client.get("/").text
+    assert 'href="/privacy"' in home and 'href="/terms"' in home and "mailto:cleartolist@gmail.com" in home

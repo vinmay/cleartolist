@@ -363,6 +363,16 @@ def recall_page(recall_id: Annotated[int, Path(ge=1, le=10_000_000)],
     return HTMLResponse(page)
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page() -> str:
+    return (ROOT / "static" / "privacy.html").read_text()
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_page() -> str:
+    return (ROOT / "static" / "terms.html").read_text()
+
+
 @app.get("/api/lookup")
 def api_lookup(request: Request, q: str = Query(..., min_length=2, max_length=120),
                children: bool = False) -> dict[str, Any]:
