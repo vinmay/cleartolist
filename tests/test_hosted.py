@@ -442,7 +442,7 @@ def ask(c, ip="1.2.3.4", **kw):
 
 def test_invite_request_stores_only_email_time_and_categories(client):
     r = ask(client, alerts=True, categories=["stroller", "toy"])
-    assert r.status_code == 202 and r.json()["ok"]
+    assert r.status_code == 202 and r.json()["message"] == "Thanks. We'll email you a code within a day."
     rows = server.STORE.all()
     assert len(rows) == 1 and rows[0][0] == "seller@example.com" and rows[0][3] == "stroller,toy"
     assert len(rows[0]) == 4  # email, created_at, alerts, categories: no address, no user agent
@@ -735,3 +735,13 @@ def test_busy_and_quota_messages_are_recognisable(client, monkeypatch):
     monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "0")
     r = submit(client, invite="", ip="2.4.6.9")
     assert r.status_code == 429 and "free checks are used up" in r.json()["error"]
+
+
+def test_admin_invites_page_lists_requests_behind_the_admin_secret(client):
+    ask(client, email="first@example.com")
+    ask(client, email="second@example.com", ip="1.2.3.5", alerts=True, categories=["stroller"])
+    assert client.get("/admin/invites").status_code == 401
+    assert client.get("/admin/invites", headers=basic(WORKER)).status_code == 401
+    r = client.get("/admin/invites", headers=basic(ADMIN))
+    assert r.status_code == 200 and "2 total" in r.text and "Strollers" in r.text
+    assert r.text.index("second@example.com") < r.text.index("first@example.com")

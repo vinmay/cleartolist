@@ -566,7 +566,7 @@ async function requestInvite(e) {
   try {
     const d = await api("/api/invite-requests", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, consent: true, alerts, categories, website: $("#website").value }) });
-    ok.textContent = d.message || "Thanks. We'll email you an invite code."; ok.hidden = false;
+    ok.textContent = d.message || "Thanks. We'll email you a code within a day."; ok.hidden = false;
     $("#inviteForm").reset(); $("#cats").hidden = true;
   } catch (x) { fail(x.message); } finally { $("#inviteBtn").disabled = false; }
 }

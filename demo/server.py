@@ -709,7 +709,7 @@ async def invite_request(request: Request, body: InviteRequest) -> dict[str, Any
         raise HTTPException(403, "Cross-site requests are not allowed.")
     if not SIGNUP_LIMIT.allow(client_of(request)):
         raise HTTPException(429, "Too many requests from this connection. Please try again in an hour.")
-    thanks = {"ok": True, "message": "Thanks. We'll email you an invite code."}
+    thanks = {"ok": True, "message": "Thanks. We'll email you a code within a day."}
     if body.website:
         QUEUE.count("signup_honeypot")
         return thanks  # look normal to the bot, store nothing
@@ -792,6 +792,31 @@ def admin_password_ok(request: Request) -> bool:
     except (ValueError, UnicodeDecodeError):
         return False
     return hmac.compare_digest(password.encode(), secret.encode())
+
+
+@app.get("/admin/invites", response_class=HTMLResponse)
+def admin_invites(request: Request) -> HTMLResponse:
+    """Private list of invite requests, newest first. HTTP Basic auth, password = the admin secret (any user name)."""
+    import html
+
+    if not STATS_LIMIT.allow(client_of(request)):
+        raise HTTPException(429, "Too many attempts. Please wait a few minutes.")
+    if not admin_password_ok(request):
+        raise HTTPException(401, "Unauthorized.", headers={"WWW-Authenticate": 'Basic realm="ClearToList admin"'})
+    rows = list(reversed(STORE.all())) if STORE.available else []  # all() is oldest first
+    names = signup_store.ALERT_CATEGORIES
+    body = "".join(
+        f"<tr><td>{html.escape(r[1].replace('T', ' ').rstrip('Z'))} UTC</td><td>{html.escape(r[0])}</td>"
+        f"<td>{'yes' if r[2] else ''}</td><td>{html.escape(', '.join(names.get(c, c) for c in r[3].split(',') if c))}"
+        f"</td></tr>" for r in rows)
+    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport"
+content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Invite requests</title>
+<link rel="stylesheet" href="/static/app.css"></head><body><main class="stats"><h1>Invite requests</h1>
+<p class="muted">{len(rows)} total, newest first. Email each person a code from CTL_INVITE_CODES, within a day.</p>
+<div class="table-wrap"><table class="results"><thead><tr><th scope="col">Requested</th><th scope="col">Email</th>
+<th scope="col">Alerts</th><th scope="col">Categories</th></tr></thead><tbody>{body}</tbody></table></div>
+</main></body></html>"""
+    return HTMLResponse(page, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
 
 @app.get("/admin/stats", response_class=HTMLResponse)
