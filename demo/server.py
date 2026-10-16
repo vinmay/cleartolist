@@ -348,21 +348,21 @@ def api_recall(request: Request, recall_id: Annotated[int, Path(ge=1, le=10_000_
 
 
 @app.get("/recall/{recall_id}", response_class=HTMLResponse)
-def recall_page(recall_id: Annotated[int, Path(ge=1, le=10_000_000)],
-                ref: Annotated[str | None, Query(max_length=40)] = None) -> HTMLResponse:
+def recall_page(recall_id: str, ref: Annotated[str | None, Query(max_length=40)] = None) -> HTMLResponse:
     """A shareable link to one recall (its id only, never a photo). The page is the homepage with this recall shown
     on top; the preview tags carry the recall's short name, escaped."""
     import html
 
-    count_visit(ref)
-    d = recall_by_id(recall_id)
-    page = (ROOT / "static" / "index.html").read_text()
+    # Anything that isn't a known recall number gets the plain 404 page, never a JSON error.
+    d = recall_by_id(int(recall_id)) if recall_id.isdigit() and 1 <= int(recall_id) <= 10_000_000 else None
     if d is None:
-        return HTMLResponse(page, status_code=404)
+        return HTMLResponse((ROOT / "static" / "404.html").read_text(), status_code=404)
+    count_visit(ref)
+    page = (ROOT / "static" / "index.html").read_text()
     title = html.escape(f"Recalled: {d['heading']}", quote=True)
     desc = html.escape(f"{d['hazard_tag']} hazard. {d['what_to_do'] or 'See the CPSC notice.'} "
                        "Check your own items with ClearToList.", quote=True)
-    url = f"{PUBLIC_URL}/recall/{recall_id}"
+    url = f"{PUBLIC_URL}/recall/{int(recall_id)}"
     for old, new in [(f"<title>{SITE_TITLE}</title>", f"<title>{title}</title>"),
                      (f'content="{SITE_TITLE}"', f'content="{title}"'),
                      (f'content="{SITE_DESC}"', f'content="{desc}"'),

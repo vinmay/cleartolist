@@ -509,7 +509,10 @@ def test_recall_link_page_and_api(client):
     r = client.get("/recall/101")
     assert r.status_code == 200 and "Recalled: Acme Strollers" in r.text
     assert 'property="og:image" content="https://cleartolist.onrender.com/static/og.png"' in r.text
-    assert "/recall/101" in r.text and client.get("/recall/999").status_code == 404
+    assert "/recall/101" in r.text
+    for bad in ("/recall/999", "/recall/abc", "/recall/-1", "/recall/1.5", "/recall/99999999999"):
+        r = client.get(bad)
+        assert r.status_code == 404 and r.headers["content-type"].startswith("text/html") and "Page not found" in r.text
 
 
 def test_recall_page_escapes_recall_text(client, db):
