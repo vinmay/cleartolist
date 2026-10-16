@@ -80,7 +80,7 @@
             <label class="drop drop-label" id="dropLabel" for="label">
               <input class="sr-only" type="file" id="label" name="label" accept="image/jpeg,image/png,image/webp" capture="environment" aria-describedby="labelHint">
               <img class="preview" id="labelPreview" alt="" hidden>
-              <span class="drop-text" id="labelText"><strong>Add the label</strong><span id="labelHint">A close-up of the model number, barcode or date code.</span></span>
+              <span class="drop-text drop-example" id="labelText"><img class="example-label" src="/static/samples/example-label.jpg" alt="Example: a label with a barcode and model number"><span><strong>Add the label</strong><span id="labelHint">A close-up of the model number, barcode or date code, like this one.</span></span></span>
             </label>
           </div>
         </li>
@@ -97,6 +97,7 @@
         <button type="submit" class="primary" id="scanBtn">Check for recalls</button>
         <p class="privacy">Photos are deleted after the scan. Location data is stripped.</p>
       </div>
+      <p class="data-line" id="dataLine">U.S. CPSC recalls since 2015, updated nightly.</p>
       <details class="policy">
         <summary>How we handle photos</summary>
         <p>Your photos are checked to be real JPEG, PNG or WebP images, then re-encoded, which removes all metadata, including GPS location. They're used for this one scan by a self-hosted GPU worker running open models, kept in memory only, and deleted as soon as the scan finishes. If the scanner is busy, they're deleted anyway after eight minutes at most. The text result is kept for ten minutes so this page can show it. We keep anonymous counts of scans, never photos, filenames or addresses.</p>

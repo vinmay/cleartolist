@@ -398,6 +398,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   api("/api/meta").then((m) => {
     recallCount = Number(m.recall_count) || 0;
+    if (recallCount && $("#dataLine")) {
+      $("#dataLine").textContent = `${recallCount.toLocaleString("en-US")} recalls, updated nightly${m.updated_at ? `, last update ${fmtDate(m.updated_at)}` : ""}.`;
+    }
     if (recallCount && $("#recallInfo")) {
       const when = m.updated_at ? `, last update ${fmtDate(m.updated_at)}` : "";
       $("#recallInfo").textContent = `Your photos are checked against ${recallCount.toLocaleString("en-US")} U.S. CPSC recalls since 2015, updated nightly${when}.`;
