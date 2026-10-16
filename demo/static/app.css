@@ -532,3 +532,11 @@ h1 { text-wrap: balance; }
 .what-we-store p { margin: 6px 0 0; max-width: 62ch; }
 @media (max-width: 400px) { .header-link { font-size: 14px; } }
 @media (max-width: 400px) { header.site { gap: 10px; } .wordmark { font-size: 19px; } .header-link { font-size: 13px; text-align: right; } }
+
+/* compact footer */
+footer.site { padding-top: var(--space-3); padding-bottom: var(--space-4); }
+footer.site .footer-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 10px; }
+footer.site .footer-links a { color: var(--ink); font-weight: 600; text-decoration: none; }
+footer.site .footer-links a:hover { text-decoration: underline; }
+footer.site .fine { font-size: 13px; color: var(--muted); margin: 0; max-width: 80ch; }
+footer.site .fine a { color: var(--muted); }

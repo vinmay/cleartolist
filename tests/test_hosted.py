@@ -619,3 +619,4 @@ def test_privacy_and_terms_pages(client):
         assert r.status_code == 200 and words in r.text and "cleartolist@gmail.com" in r.text
     home = client.get("/").text
     assert 'href="/privacy"' in home and 'href="/terms"' in home and "mailto:cleartolist@gmail.com" in home
+    assert "Built by V" not in home and "Famartin" in client.get("/terms").text
