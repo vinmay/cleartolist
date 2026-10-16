@@ -299,9 +299,16 @@ def api_lookup(request: Request, q: str = Query(..., min_length=2, max_length=12
 
 
 @app.get("/api/gallery")
-def api_gallery() -> list[dict[str, Any]]:
+def api_gallery(set: Literal["curated", "sample", "all"] = "all") -> list[dict[str, Any]]:  # noqa: A002
+    """curated: the homepage's selected examples; sample: the random sample shown on /how-we-measured."""
     p = GALLERY / "gallery.json"
-    return json.loads(p.read_text()) if p.exists() else []
+    items = json.loads(p.read_text()) if p.exists() else []
+    return items if set == "all" else [i for i in items if i.get("set") == set]
+
+
+@app.get("/how-we-measured", response_class=HTMLResponse)
+def how_we_measured() -> str:
+    return (ROOT / "static" / "measured.html").read_text()
 
 
 @app.get("/api/meta")

@@ -108,7 +108,7 @@ The local app (`app/`) has the same two-photo flow plus a batch mode that turns 
 
 ## Evaluation
 
-All numbers are from a held-out test on a 6 GB consumer GPU. Each positive is a CPSC recall photo with simulated phone-photo degradation; that photo and every copy or near-duplicate of it (SigLIP 2 cosine ≥ 0.95) are removed from the index for that query, so a query can only match through *other* photos of the same recall. Negatives are licensed, same-category, non-recall product photos from Wikimedia Commons ([manifest](eval/negatives_manifest.json)). Rules were tuned on a separate dev split that shares no recall and no photo with the test set. Full tables: [Run 3](eval/results.md), [gate and verifier choice on dev](eval/gate.md).
+All numbers are from a held-out test on a 6 GB consumer GPU. Each positive is a CPSC recall photo with simulated phone-photo degradation; that photo and every copy or near-duplicate of it (SigLIP 2 cosine ≥ 0.95) are removed from the index for that query, so a query can only match through *other* photos of the same recall. Negatives are licensed, same-category, non-recall product photos from Wikimedia Commons ([manifest](eval/negatives_manifest.json)). Rules were tuned on a separate dev split that shares no recall and no photo with the test set. Full tables: [Run 3](eval/results.md), [gate and verifier choice on dev](eval/gate.md). A plain-language summary with a random sample of test scans, misses included, is on the site: [how we measured this](https://cleartolist.onrender.com/how-we-measured).
 
 ![Correct recall in the top 3: image only, text only, fused, Run 3](eval/ablation.png)
 

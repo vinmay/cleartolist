@@ -484,3 +484,14 @@ def test_signup_export_needs_the_admin_signature(client):
     assert signed(client, "GET", "/admin/invite-requests", secret=WORKER).status_code == 401
     r = signed(client, "GET", "/admin/invite-requests", secret=ADMIN)
     assert r.status_code == 200 and "seller@example.com" in r.text
+
+
+def test_gallery_sets_and_measured_page(client):
+    cur = client.get("/api/gallery?set=curated").json()
+    assert len(cur) == 3 and all(i["set"] == "curated" for i in cur)
+    assert {(i.get("final") or i["item"])["verdict"] for i in cur} == {"CONFIRMED", "POSSIBLE MATCH", "NO MATCH FOUND"}
+    sample = client.get("/api/gallery?set=sample").json()
+    assert sample and all(i["set"] == "sample" for i in sample)
+    assert client.get("/api/gallery?set=bogus").status_code == 400
+    r = client.get("/how-we-measured")
+    assert r.status_code == 200 and 'data-set="sample"' in r.text

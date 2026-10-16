@@ -218,7 +218,7 @@ footer.site p { margin: 0 0 6px; max-width: 70ch; }
 @media (min-width: 640px) {
   .strip { grid-template-columns: repeat(4, 1fr); }
   .gallery { grid-template-columns: 1fr 1fr; }
-  .gallery .example:first-child { grid-column: 1 / -1; grid-template-columns: 300px 1fr; align-items: start; }
+  .gallery[data-set=sample] .example:first-child { grid-column: 1 / -1; grid-template-columns: 300px 1fr; align-items: start; }
 }
 @media (min-width: 900px) {
   .hero { display: grid; grid-template-columns: 5fr 7fr; gap: 40px; align-items: start; }
@@ -297,3 +297,14 @@ footer.site p { margin: 0 0 6px; max-width: 70ch; }
 .small { font-size: 14px; }
 .intro .lede { margin-top: 16px; }
 @media (min-width: 900px) { .proof { grid-template-columns: 170px 1fr; } .proof-shot { width: 170px; } }
+
+/* how we measured */
+.measured h1 { max-width: 20ch; margin-top: 16px; }
+.m-intro { margin-top: 8px; }
+.measured section p { max-width: 66ch; }
+.table-wrap { overflow-x: auto; margin: 12px 0 16px; }
+.results { border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); min-width: 320px; }
+.results th, .results td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 15px; vertical-align: top; }
+.results thead th { font-weight: 700; }
+.results tbody th { font-weight: 400; color: var(--muted); max-width: 26ch; }
+.results td { font-weight: 700; white-space: nowrap; }

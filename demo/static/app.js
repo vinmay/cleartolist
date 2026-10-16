@@ -1,7 +1,7 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const safeUrl = (u) => (/^(https:\/\/|\/gallery\/[a-f0-9]{12}\.jpg$)/.test(String(u || "")) ? esc(u) : "");
+const safeUrl = (u) => (/^(https:\/\/|\/gallery\/[a-f0-9]{12}\.jpg$|\/static\/samples\/[a-z-]+\.jpg$)/.test(String(u || "")) ? esc(u) : "");
 const key = (v) => ({"CONFIRMED": "CONFIRMED", "POSSIBLE MATCH": "POSSIBLE", "NO MATCH FOUND": "NOMATCH"}[v] || "NOMATCH");
 const STICKER = {"CONFIRMED": "Recalled", "POSSIBLE MATCH": "Check the label", "NO MATCH FOUND": "No match found"};
 const UNAVAILABLE = "Scanning is temporarily unavailable. Recall lookup still works.";
@@ -324,27 +324,31 @@ const OUTCOME = {
 async function gallery() {
   const g = $("#gallery");
   try {
-    const items = (await api("/api/gallery")).filter((s) => s.item);
+    const set = g.dataset.set || "curated";
+    const items = (await api(`/api/gallery?set=${encodeURIComponent(set)}`)).filter((s) => s.item);
     if (!items.length) { g.innerHTML = `<p class="muted">No example scans yet.</p>`; return; }
-    const selected = (s) => String(s.photo_source).startsWith("Selected");
-    items.sort((a, b) => (selected(b) - selected(a)) || ((b.kind === "pair") - (a.kind === "pair")));
+    if (set === "sample") items.sort((a, b) => (b.kind === "pair") - (a.kind === "pair"));
     g.innerHTML = items.map((s) => {
       const fin = s.final || s.item;
-      const m = fin.recalls[0];
+      const matched = fin.verdict !== "NO MATCH FOUND";  // a no-match card never presents a recall as its match
+      const m = matched ? fin.recalls[0] : null;
+      const suggestions = !matched && fin.recalls.length ? `<p class="muted">Closest recalls to check (suggestions, not matches): ${fin.recalls.map((x) => esc(x.title)).join("; ")}</p>` : "";
       return `<article class="example">
         <div class="shot"><img src="${safeUrl(s.photo_url)}" alt="Item photo">${sticker(fin.verdict, true)}</div>
         <div>
           ${s.kind === "pair" ? `<div class="label-thumb"><img src="${safeUrl(s.label_photo_url)}" alt="Label photo"><span>Item photo plus this label photo</span></div>` : ""}
-          <h3>${m ? `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : "No recall shown"}</h3>
+          <h3>${m ? `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : "No match in CPSC recalls"}</h3>${suggestions}
           ${m && m.code ? `<p>Matched ${esc(m.code.replace(/model:/g, "model ").replace(/upc:/g, "UPC "))}</p>` : ""}
           <p>${esc(s.truth ? OUTCOME[s.truth.outcome] || "" : "")}</p>
-          <p class="kind">${selected(s) ? "Selected example: picked because its label confirmed a recall." : "Random sample from the test photos."} Simulated from held-out CPSC photos.</p>
+          <p class="kind">${s.set === "curated" ? esc(s.photo_source) : "Random sample from the test photos, simulated from held-out CPSC photos."}</p>
         </div></article>`;
     }).join("");
   } catch (e) { g.innerHTML = `<p class="muted">Example scans couldn't be loaded.</p>`; }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  if ($("#gallery")) gallery();
+  if (!$("#scanForm")) return;  // pages without the scanner (how-we-measured) only need the gallery
   try { $("#invite").value = localStorage.getItem("ctl-invite") || ""; } catch (e) { /* storage unavailable */ }
   wireDrop("photo"); wireDrop("label");
   $("#invite").addEventListener("input", clearError);
@@ -357,7 +361,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#batchForm").addEventListener("submit", runBatch);
   $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
-  gallery();
   api("/api/meta").then((m) => {
     recallCount = Number(m.recall_count) || 0;
     if (m.invite_requests === false) {
