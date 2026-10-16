@@ -115,8 +115,8 @@ class DailyQuota:
         self.day, self.used = "", 0
 
     def limit(self) -> int:
-        v = os.environ.get("CTL_PUBLIC_DAILY_SCANS", "50").strip()
-        return int(v) if v.isdigit() else 50
+        v = os.environ.get("CTL_PUBLIC_DAILY_SCANS", "200").strip()
+        return int(v) if v.isdigit() else 200
 
     def _roll(self) -> None:
         today = time.strftime("%Y-%m-%d", time.gmtime())

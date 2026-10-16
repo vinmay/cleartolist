@@ -682,3 +682,8 @@ def test_robots_and_sitemap(client):
     r = client.get("/sitemap.xml")
     assert r.headers["content-type"].startswith("application/xml")
     assert all(f"<loc>https://cleartolist.onrender.com{p}</loc>" in r.text for p in ("/", "/privacy", "/terms"))
+
+
+def test_public_daily_quota_defaults_to_200(monkeypatch):
+    monkeypatch.delenv("CTL_PUBLIC_DAILY_SCANS", raising=False)
+    assert server.DailyQuota().limit() == 200
