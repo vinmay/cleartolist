@@ -174,15 +174,16 @@ class RateLimiter:
         self._hits: dict[str, deque[float]] = {}
         self._lock = threading.Lock()
 
-    def allow(self, key: str, now: float | None = None) -> bool:
+    def allow(self, key: str, now: float | None = None, cost: int = 1) -> bool:
+        """Record `cost` events for key if they fit in the window (a batch of 10 photos costs 10)."""
         now = time.time() if now is None else now
         with self._lock:
             q = self._hits.setdefault(key, deque())
             while q and q[0] <= now - self.window:
                 q.popleft()
-            if len(q) >= self.limit:
+            if len(q) + cost > self.limit:
                 return False
-            q.append(now)
+            q.extend([now] * cost)
             if len(self._hits) > 50_000:  # bound memory under a flood of distinct keys
                 for k in [k for k, v in self._hits.items() if not v or v[-1] <= now - self.window]:
                     del self._hits[k]

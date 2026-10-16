@@ -22,22 +22,29 @@ import time
 import urllib.error
 import urllib.request
 from contextlib import asynccontextmanager
-from pathlib import Path
+from pathlib import Path as FsPath
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Path, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.formparsers import MultiPartParser
 
 from demo import security
-from demo.jobs import JobQueue, QueueFull, TooManyPending
+from demo.jobs import MAX_BATCH, JobQueue, QueueFull, TooManyPending
+
+# Keep uploaded files in memory while the form is parsed (the default spills anything over 1 MB to a temp file);
+# the size guard below caps how much a request can send in the first place.
+MultiPartParser.spool_max_size = security.MAX_UPLOAD_BYTES + 1024 * 1024
+UPLOAD_LIMITS = {"/api/jobs": 2 * security.MAX_UPLOAD_BYTES + 1024 * 1024,
+                 "/api/batches": MAX_BATCH * security.MAX_UPLOAD_BYTES + 1024 * 1024}
 
 log = logging.getLogger("uvicorn.error")
-ROOT = Path(__file__).parent
-DB = Path(os.environ.get("CTL_DEMO_DB", "data/demo.db"))
+ROOT = FsPath(__file__).parent
+DB = FsPath(os.environ.get("CTL_DEMO_DB", "data/demo.db"))
 DB_URL = os.environ.get(
     "CTL_DEMO_DB_URL", "https://github.com/vinmay/cleartolist/releases/download/data-latest/demo.db"
 )
@@ -76,7 +83,7 @@ if GALLERY.exists():
 QUEUE = JobQueue()
 NONCES = security.NonceStore()
 STATE: dict[str, Any] = {"worker_seen": 0.0, "uploads_override": None}
-SCAN_LIMIT = security.RateLimiter(5, 600)  # photo scans per client per 10 min
+SCAN_LIMIT = security.RateLimiter(20, 600)  # photos per client per 10 min (a batch of 10 costs 10)
 LOOKUP_LIMIT = security.RateLimiter(30, 60)
 POLL_LIMIT = security.RateLimiter(120, 60)  # result polling
 
@@ -120,6 +127,14 @@ CSP = ("default-src 'self'; img-src 'self' blob: https://www.cpsc.gov https://cp
 async def harden(request: Request, call_next):
     if request.headers.get("x-forwarded-proto") == "http":  # behind Render's TLS proxy: force HTTPS
         return RedirectResponse(str(request.url.replace(scheme="https")), status_code=308)
+    cap = UPLOAD_LIMITS.get(request.url.path) if request.method == "POST" else None
+    if cap is not None:  # refuse oversized or unsized upload bodies before parsing anything
+        length = request.headers.get("content-length", "")
+        if not length.isdigit():
+            return JSONResponse({"error": "Upload size missing. Please try again."}, status_code=411)
+        if int(length) > cap:
+            return JSONResponse({"error": "Too much data in one upload. Each photo can be up to 8 MB."},
+                                status_code=413)
     try:
         resp = await call_next(request)
     except Exception:  # never leak a stack trace
@@ -278,7 +293,8 @@ async def create_job(request: Request, invite: Annotated[str, Form(max_length=64
         QUEUE.count("rejected_invite")
         raise HTTPException(403, "That invite code isn't valid.")
     client = client_of(request)
-    if not SCAN_LIMIT.allow(client):
+    has_label = label is not None and bool(label.filename)
+    if not SCAN_LIMIT.allow(client, cost=1 + has_label):
         QUEUE.count("rejected_rate")
         raise HTTPException(429, "Too many scans from this connection. Please wait a few minutes.")
     if not worker_alive():
@@ -301,6 +317,48 @@ async def create_job(request: Request, invite: Annotated[str, Form(max_length=64
     return {"job": job.id, "state": job.state}
 
 
+@app.post("/api/batches", status_code=202)
+async def create_batch(request: Request, invite: Annotated[str, Form(max_length=64)],
+                       photos: Annotated[list[UploadFile], File()]) -> dict[str, Any]:
+    """Up to MAX_BATCH item photos in one job and one combined report. Same checks as a single scan; the batch
+    counts once per photo against the per-client and global queue limits and the rate limit."""
+    if not same_origin(request):
+        raise HTTPException(403, "Cross-site requests are not allowed.")
+    if not uploads_enabled():
+        QUEUE.count("rejected_disabled")
+        raise HTTPException(503, UNAVAILABLE)
+    codes = invite_codes()
+    if not codes or not security.code_matches(invite, codes):
+        QUEUE.count("rejected_invite")
+        raise HTTPException(403, "That invite code isn't valid.")
+    files = [f for f in photos if f.filename]
+    if not files:
+        raise HTTPException(400, "Choose at least one photo.")
+    if len(files) > MAX_BATCH:
+        raise HTTPException(400, f"A batch can have up to {MAX_BATCH} photos. Remove {len(files) - MAX_BATCH}.")
+    client = client_of(request)
+    if not SCAN_LIMIT.allow(client, cost=len(files)):
+        QUEUE.count("rejected_rate")
+        raise HTTPException(429, "Too many photos from this connection. Please wait a few minutes.")
+    if not worker_alive():
+        QUEUE.count("rejected_unavailable")
+        raise HTTPException(503, UNAVAILABLE)
+    clean = {}
+    for i, f in enumerate(files):
+        try:
+            clean[f"b{i}"] = security.sanitize_image(await read_capped(f))
+        except security.UploadError as e:
+            QUEUE.count("rejected_upload")
+            raise HTTPException(400, f"Photo {i + 1}: {e}") from e
+    try:
+        job = QUEUE.submit(client, clean, kind="batch")
+    except QueueFull as e:
+        raise HTTPException(503, "The scanner is busy right now. Please try again in a few minutes.") from e
+    except TooManyPending as e:
+        raise HTTPException(429, "You already have scans in progress. Wait for them to finish.") from e
+    return {"job": job.id, "state": job.state, "photos": len(clean)}
+
+
 @app.get("/api/jobs/{job_id}")
 def job_status(request: Request, job_id: str) -> dict[str, Any]:
     if not POLL_LIMIT.allow(client_of(request)):
@@ -311,7 +369,7 @@ def job_status(request: Request, job_id: str) -> dict[str, Any]:
     if job.state in ("queued", "running"):
         return {"state": job.state}
     if job.state == "done" and job.result is not None:
-        return {"state": "done", "result": job.result}
+        return {"state": "done", "kind": job.kind, "result": job.result}
     return {"state": "unavailable", "message": UNAVAILABLE}  # failed or expired: same generic message
 
 
@@ -340,11 +398,12 @@ async def worker_claim(request: Request) -> Response:
     job = QUEUE.claim()
     if job is None:
         return Response(status_code=204)
-    return JSONResponse({"job": job.id, "photos": sorted(job.photos)})
+    return JSONResponse({"job": job.id, "kind": job.kind, "photos": sorted(job.photos)})
 
 
 @app.get("/worker/jobs/{job_id}/photo/{which}")
-async def worker_photo(request: Request, job_id: str, which: Literal["item", "label"]) -> Response:
+async def worker_photo(request: Request, job_id: str,
+                       which: Annotated[str, Path(pattern=r"^(item|label|b[0-9])$")]) -> Response:
     await require_worker(request)
     job = QUEUE.get(job_id) if JOB_ID.match(job_id) else None
     if job is None or job.state != "running" or which not in job.photos:
@@ -380,6 +439,11 @@ class WorkerResult(BaseModel):
     notes: list[NOTE] = Field(default_factory=list, max_length=4)
     closest: bool = False  # NO MATCH FOUND with the three closest recalls shown as suggestions, not matches
     seconds: float = Field(0, ge=0, le=600)
+
+
+class BatchResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[WorkerResult] = Field(min_length=1, max_length=MAX_BATCH)
 
 
 def code_in_db(c: sqlite3.Connection, recall_id: int, code: str) -> bool:
@@ -421,12 +485,19 @@ async def worker_result(request: Request, job_id: str) -> dict[str, bool]:
     body = await require_worker(request)
     if not JOB_ID.match(job_id):
         raise HTTPException(404, "Not found.")
+    job = QUEUE.get(job_id)
     try:
-        w = WorkerResult.model_validate_json(body)
-    except ValidationError as e:
+        if job is not None and job.kind == "batch":
+            b = BatchResult.model_validate_json(body)
+            if len(b.items) != job.weight:
+                raise ValueError("one result per photo")
+            rendered: dict[str, Any] = {"items": [render_result(w) for w in b.items]}
+        else:
+            rendered = render_result(WorkerResult.model_validate_json(body))
+    except (ValidationError, ValueError) as e:
         QUEUE.finish(job_id, None)
         raise HTTPException(400, "Invalid result.") from e
-    if not QUEUE.finish(job_id, render_result(w)):
+    if not QUEUE.finish(job_id, rendered):
         raise HTTPException(409, "Job is not running.")
     return {"ok": True}
 

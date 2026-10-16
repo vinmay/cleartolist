@@ -33,6 +33,7 @@ from demo.security import UploadError, sanitize_image, signed_headers
 from verify.pipeline import label_followup, scan
 
 JOB_ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
+BATCH_KEYS = [f"b{i}" for i in range(10)]
 CODE = re.compile(r"^(model|upc):[A-Z0-9]{4,20}$")
 IDLE_POLL_S = 3.0
 MAX_BACKOFF_S = 60.0
@@ -97,6 +98,16 @@ def to_wire(item: dict[str, Any], final: dict[str, Any], label: dict[str, Any] |
             "notes": notes, "seconds": round(seconds, 2)}
 
 
+def run_batch(photos: dict[str, Image.Image]) -> dict[str, Any]:
+    """A batch: each photo is an item photo on its own (no label step); one result per photo, in order."""
+    items = []
+    for k in [k for k in BATCH_KEYS if k in photos]:
+        t = time.perf_counter()
+        item = scan(photos[k]).to_dict()
+        items.append(to_wire(item, item, None, time.perf_counter() - t))
+    return {"items": items}
+
+
 def run_job(photos: dict[str, Image.Image]) -> dict[str, Any]:
     t = time.perf_counter()
     item = scan(photos["item"]).to_dict()
@@ -145,20 +156,27 @@ def main() -> None:
                 continue
             r.raise_for_status()
             d = r.json()
-            job, which = str(d.get("job", "")), d.get("photos", [])
-            if not JOB_ID.match(job) or not isinstance(which, list) or not set(which) <= {"item", "label"} \
-                    or "item" not in which:
+            job, which, kind = str(d.get("job", "")), d.get("photos", []), d.get("kind", "single")
+            ok_single = kind == "single" and isinstance(which, list) and set(which) <= {"item", "label"} \
+                and "item" in which
+            ok_batch = kind == "batch" and isinstance(which, list) and 0 < len(which) <= 10 \
+                and set(which) <= set(BATCH_KEYS)
+            if not JOB_ID.match(job) or not (ok_single or ok_batch):
                 print("ignored a malformed job", flush=True)
                 continue
             try:
-                result = run_job({w: srv.photo(job, w) for w in which})
+                photos = {w: srv.photo(job, w) for w in which}
+                result = run_batch(photos) if kind == "batch" else run_job(photos)
             except Exception as e:  # report a generic failure; details stay local
                 print(f"scan failed: {type(e).__name__}", flush=True)
                 srv.call("POST", f"/worker/jobs/{job}/fail")
                 continue
             body = json.dumps(result).encode()
             rr = srv.call("POST", f"/worker/jobs/{job}/result", body)
-            print(f"scan done: {result['verdict']} in {result['seconds']} s (server {rr.status_code})", flush=True)
+            if kind == "batch":
+                print(f"batch done: {len(result['items'])} photos (server {rr.status_code})", flush=True)
+            else:
+                print(f"scan done: {result['verdict']} in {result['seconds']} s (server {rr.status_code})", flush=True)
             backoff = IDLE_POLL_S
         except (httpx.HTTPError, ValueError) as e:
             print(f"server unreachable or error ({type(e).__name__}); retrying in {backoff:.0f} s", flush=True)

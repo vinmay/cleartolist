@@ -167,9 +167,10 @@ def test_unavailable_worker_gives_a_generic_message(client):
 
 def test_queue_full_and_per_client_limits(client, monkeypatch):
     monkeypatch.setattr(jobs, "MAX_QUEUE", 3)
+    monkeypatch.setattr(jobs, "MAX_PENDING_PER_CLIENT", 2)
     assert submit(client, ip="1.1.1.1").status_code == 202
     assert submit(client, ip="1.1.1.1").status_code == 202
-    assert submit(client, ip="1.1.1.1").status_code == 429  # per-client pending cap (2)
+    assert submit(client, ip="1.1.1.1").status_code == 429  # per-client pending cap (2 photos)
     assert submit(client, ip="2.2.2.2").status_code == 202
     r = submit(client, ip="3.3.3.3")
     assert r.status_code == 503 and "busy" in r.json()["error"]
@@ -280,3 +281,73 @@ def test_auth_failure_reasons_are_specific_but_never_returned(client):
     r = client.post("/worker/claim", headers=security.signed_headers("x" * 40, "POST", "/worker/claim"))
     assert r.status_code == 401 and r.json() == {"error": "Unauthorized."}
     assert len(security.fingerprint(WORKER)) == 6
+
+
+# --- batches -------------------------------------------------------------------------------------------------
+
+def batch(c, n, ip="7.7.7.7", photos=None):
+    files = [("photos", (f"p{i}.jpg", (photos or {}).get(i, jpeg()), "image/jpeg")) for i in range(n)]
+    return c.post("/api/batches", data={"invite": INVITE}, files=files, headers={"X-Forwarded-For": ip})
+
+
+def test_batch_round_trip_one_report_and_photos_deleted(client):
+    job = batch(client, 3).json()["job"]
+    d = signed(client, "POST", "/worker/claim").json()
+    assert d["kind"] == "batch" and d["photos"] == ["b0", "b1", "b2"]
+    assert signed(client, "GET", f"/worker/jobs/{job}/photo/b2").status_code == 200
+    items = [{"verdict": "NO MATCH FOUND"}, {"verdict": "CONFIRMED",
+              "shortlist": [{"recall_id": 101, "codes": ["model:AB1234"]}]}, {"verdict": "NO MATCH FOUND"}]
+    body = json.dumps({"items": items}).encode()
+    assert signed(client, "POST", f"/worker/jobs/{job}/result", body).status_code == 200
+    res = client.get(f"/api/jobs/{job}").json()
+    assert res["kind"] == "batch" and [x["verdict"] for x in res["result"]["items"]] == [
+        "NO MATCH FOUND", "CONFIRMED", "NO MATCH FOUND"]
+    assert server.QUEUE.jobs[job].photos == {}
+
+
+def test_batch_size_is_capped(client):
+    r = batch(client, 11)
+    assert r.status_code == 400 and "up to 10" in r.json()["error"]
+    assert not server.QUEUE.jobs
+
+
+def test_batch_counts_per_photo_against_client_and_queue_limits(client, monkeypatch):
+    monkeypatch.setattr(server, "SCAN_LIMIT", security.RateLimiter(100, 600))
+    assert batch(client, 10, ip="7.7.7.7").status_code == 202
+    assert submit(client, ip="7.7.7.7").status_code == 429  # the batch already uses the client's 10 photos
+    monkeypatch.setattr(jobs, "MAX_QUEUE", 12)
+    r = batch(client, 3, ip="8.8.8.8")
+    assert r.status_code == 503 and "busy" in r.json()["error"]
+
+
+def test_batch_rate_limit_costs_one_per_photo(client, monkeypatch):
+    monkeypatch.setattr(server, "SCAN_LIMIT", security.RateLimiter(5, 600))
+    assert batch(client, 6).status_code == 429
+    assert batch(client, 5).status_code == 202
+
+
+def test_bad_photo_rejects_the_whole_batch(client):
+    r = batch(client, 3, photos={1: b"<html>nope</html>"})
+    assert r.status_code == 400 and r.json()["error"].startswith("Photo 2:")
+    assert not server.QUEUE.jobs
+
+
+def test_batch_result_must_have_one_item_per_photo(client):
+    job = batch(client, 2).json()["job"]
+    signed(client, "POST", "/worker/claim")
+    body = json.dumps({"items": [{"verdict": "NO MATCH FOUND"}]}).encode()
+    assert signed(client, "POST", f"/worker/jobs/{job}/result", body).status_code == 400
+    assert client.get(f"/api/jobs/{job}").json()["state"] == "unavailable"
+
+
+def test_oversized_upload_body_is_refused_before_parsing(client, monkeypatch):
+    monkeypatch.setitem(server.UPLOAD_LIMITS, "/api/jobs", 500)
+    r = submit(client)
+    assert r.status_code == 413 and not server.QUEUE.jobs
+
+
+def test_worker_photo_names_are_restricted(client):
+    job = batch(client, 1).json()["job"]
+    signed(client, "POST", "/worker/claim")
+    assert signed(client, "GET", f"/worker/jobs/{job}/photo/b0").status_code == 200
+    assert signed(client, "GET", f"/worker/jobs/{job}/photo/x9").status_code in (400, 401, 422)

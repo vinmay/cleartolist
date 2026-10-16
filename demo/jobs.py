@@ -12,10 +12,14 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-MAX_QUEUE = 8  # queued + running, across all users: a flood can never pile up GPU work
-MAX_PENDING_PER_CLIENT = 2
-QUEUED_TTL_S = 90  # unclaimed jobs expire
-RUNNING_TTL_S = 120  # a claimed job that gets no result expires
+# Limits count photos, not jobs: a batch of 10 weighs 10, an item plus its label weighs 2.
+MAX_QUEUE = 20  # photos queued + running, across all users: a flood can never pile up GPU work
+MAX_PENDING_PER_CLIENT = 10  # photos one client can have waiting at once (one full batch)
+MAX_BATCH = 10
+QUEUED_TTL_S = 180  # unclaimed jobs expire (20 queued photos take ~2.5 min)
+RUNNING_TTL_BASE_S = 60  # a claimed job that gets no result expires after this plus RUNNING_TTL_PER_PHOTO_S each
+RUNNING_TTL_PER_PHOTO_S = 20
+MAX_PHOTO_AGE_S = QUEUED_TTL_S + RUNNING_TTL_BASE_S + RUNNING_TTL_PER_PHOTO_S * MAX_BATCH  # upper bound, for the policy
 RESULT_TTL_S = 600  # finished results (text only, no photos) are kept briefly so the page can fetch them
 
 
@@ -33,6 +37,8 @@ class Job:
     client: str
     created: float
     photos: dict[str, bytes]
+    kind: str = "single"  # "single" (item, optional label) or "batch" (up to MAX_BATCH item photos)
+    weight: int = 1
     state: str = "queued"  # queued | running | done | failed | expired
     claimed: float | None = None
     finished: float | None = None
@@ -59,25 +65,27 @@ class JobQueue:
         with self._lock:
             for j in list(self.jobs.values()):
                 if j.state == "queued" and now - j.created > QUEUED_TTL_S or (
-                        j.state == "running" and now - (j.claimed or now) > RUNNING_TTL_S):
+                        j.state == "running"
+                        and now - (j.claimed or now) > RUNNING_TTL_BASE_S + RUNNING_TTL_PER_PHOTO_S * j.weight):
                     j.state, j.finished = "expired", now
                     j.drop_photos()
                     self.count("expired")
                 elif j.state in ("done", "failed", "expired") and now - (j.finished or now) > RESULT_TTL_S:
                     del self.jobs[j.id]
 
-    def submit(self, client: str, photos: dict[str, bytes], now: float | None = None) -> Job:
+    def submit(self, client: str, photos: dict[str, bytes], now: float | None = None, kind: str = "single") -> Job:
         now = time.time() if now is None else now
         self.sweep(now)
+        weight = len(photos)
         with self._lock:
             pending = self._pending()
-            if len(pending) >= MAX_QUEUE:
+            if sum(j.weight for j in pending) + weight > MAX_QUEUE:
                 self.count("rejected_queue_full")
                 raise QueueFull
-            if sum(j.client == client for j in pending) >= MAX_PENDING_PER_CLIENT:
+            if sum(j.weight for j in pending if j.client == client) + weight > MAX_PENDING_PER_CLIENT:
                 self.count("rejected_per_client")
                 raise TooManyPending
-            job = Job(secrets.token_urlsafe(16), client, now, photos)
+            job = Job(secrets.token_urlsafe(16), client, now, photos, kind, weight)
             self.jobs[job.id] = job
             self.count("accepted")
             return job

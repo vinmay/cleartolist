@@ -177,6 +177,85 @@ async function runScan(e) {
   }
 }
 
+// --- batch ---------------------------------------------------------------------------------------------------
+const MAX_BATCH = 10;
+let batchUrls = [];
+function batchError(msg) { const e = $("#batchErr"); e.textContent = msg; e.hidden = !msg; }
+function showBatchThumbs() {
+  batchUrls.forEach((u) => URL.revokeObjectURL(u));
+  const files = [...$("#batchPhotos").files];
+  batchUrls = files.map((f) => URL.createObjectURL(f));
+  $("#batchThumbs").innerHTML = batchUrls.slice(0, MAX_BATCH).map((u, i) => `<img src="${u}" alt="Photo ${i + 1}">`).join("");
+  batchError(files.length > MAX_BATCH ? `That's ${files.length} photos. Choose up to ${MAX_BATCH}, or split them into two batches.` : "");
+}
+// CSV for spreadsheets: quote every field and neutralise cells a spreadsheet would run as a formula.
+const csvCell = (v) => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
+function batchCsv(files, items) {
+  const rows = [["photo", "verdict", "recalls", "recall links", "closest recalls to check"]];
+  items.forEach((r, i) => {
+    const shown = r.verdict !== "NO MATCH FOUND" ? r.recalls : [];
+    const closest = r.verdict === "NO MATCH FOUND" && r.closest ? r.recalls : [];
+    rows.push([files[i] ? files[i].name : `photo ${i + 1}`, r.verdict, shown.map((m) => m.title).join(" | "),
+      shown.map((m) => m.url).join(" | "), closest.map((m) => m.title).join(" | ")]);
+  });
+  rows.push(["Screening aid only, not legal advice. No match found means no match in CPSC recalls, not that the item is safe."]);
+  return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
+}
+function renderBatch(files, items) {
+  const n = (v) => items.filter((r) => r.verdict === v).length;
+  const pull = n("CONFIRMED"), check = n("POSSIBLE MATCH"), none = n("NO MATCH FOUND");
+  const line = (r) => {
+    if (r.verdict === "CONFIRMED") return `<p>Matched ${esc((r.recalls[0].codes || []).map((c) => c.replace(/^(model|upc):/, (x, k) => (k === "upc" ? "UPC " : "model "))).join(", "))}: <a href="${safeUrl(r.recalls[0].url)}" target="_blank" rel="noopener">${esc(r.recalls[0].title)}</a></p>`;
+    if (r.verdict === "POSSIBLE MATCH") return `<p>Looks like: ${r.recalls.map((m) => `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>`).join("; ")}</p><p class="muted">Check its label in the scanner above.</p>`;
+    if (r.closest && r.recalls.length) return `<p class="muted">Closest recalls to check (suggestions, not matches): ${r.recalls.map((m) => `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>`).join("; ")}</p>`;
+    return `<p class="muted">No match in CPSC recalls. This does not mean the item is safe.</p>`;
+  };
+  $("#batchOut").innerHTML = `<p class="summary">${pull} to pull, ${check} to check with a label photo, ${none} with no match found.</p>
+    <div class="report">${items.map((r, i) => `<div class="item"><img src="${batchUrls[i] || ""}" alt="Photo ${i + 1}">
+      <div><span class="tag t-${key(r.verdict)}">${esc(STICKER[r.verdict])}</span>${line(r)}</div></div>`).join("")}</div>
+    <p class="report-actions"><button type="button" class="secondary" id="csvBtn">Download the report (CSV)</button></p>`;
+  $("#csvBtn").addEventListener("click", () => {
+    const url = URL.createObjectURL(new Blob([batchCsv(files, items)], { type: "text/csv" }));
+    const a = document.createElement("a"); a.href = url; a.download = "cleartolist-report.csv"; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  });
+}
+async function runBatch(e) {
+  e.preventDefault();
+  batchError("");
+  const files = [...$("#batchPhotos").files], invite = $("#invite").value.trim();
+  if (!files.length) { batchError("Choose at least one photo."); $("#batchPhotos").focus(); return; }
+  if (files.length > MAX_BATCH) { batchError(`Choose up to ${MAX_BATCH} photos. You chose ${files.length}.`); return; }
+  const big = files.findIndex((f) => f.size > 8 * 1024 * 1024);
+  if (big >= 0) { batchError(`Photo ${big + 1} is larger than 8 MB. Use a smaller photo.`); return; }
+  if (!invite) { batchError("Enter your invite code in the scanner above."); $("#invite").focus(); return; }
+  const fd = new FormData();
+  fd.append("invite", invite);
+  files.forEach((f) => fd.append("photos", f));
+  $("#batchBtn").disabled = true;
+  const out = $("#batchOut");
+  const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 10 seconds a photo.</p>${woke ? `<p class="wake">The free server was asleep and is waking up. This can take up to a minute.</p>` : ""}</div></div>`;
+  out.innerHTML = wait(false);
+  try {
+    const { job } = await api("/api/batches", { method: "POST", body: fd }, () => { out.innerHTML = wait(true); });
+    const t0 = Date.now();
+    while (Date.now() - t0 < 480000) {
+      const s = await api(`/api/jobs/${encodeURIComponent(job)}`);
+      if (s.state === "done") { renderBatch(files, s.result.items); return; }
+      if (s.state === "unavailable") { out.innerHTML = unavailable(); return; }
+      await sleep(3000);
+    }
+    out.innerHTML = unavailable();
+  } catch (err) {
+    out.innerHTML = "";
+    if (err.status === 403 && /invite/i.test(err.message)) { batchError("That invite code isn't valid. Check it for typos, or ask for a new one."); }
+    else if (err.status === 503 && /unavailable/i.test(err.message)) out.innerHTML = unavailable();
+    else batchError(err.message);
+  } finally {
+    $("#batchBtn").disabled = false;
+  }
+}
+
 // --- lookup --------------------------------------------------------------------------------------------------
 async function search(q) {
   const out = $("#lookupOut");
@@ -230,6 +309,8 @@ document.addEventListener("DOMContentLoaded", () => {
   wireDrop("photo"); wireDrop("label");
   $("#invite").addEventListener("input", clearError);
   $("#scanForm").addEventListener("submit", runScan);
+  $("#batchPhotos").addEventListener("change", showBatchThumbs);
+  $("#batchForm").addEventListener("submit", runBatch);
   $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   gallery();

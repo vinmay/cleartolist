@@ -64,13 +64,28 @@
       </div>
       <details class="policy">
         <summary>How we handle photos</summary>
-        <p>Your photos are checked to be real JPEG, PNG or WebP images, then re-encoded, which removes all metadata, including GPS location. They're used for this one scan by a self-hosted GPU worker running open models, kept in memory only, and deleted as soon as the scan finishes or after two minutes, whichever comes first. The text result is kept for ten minutes so this page can show it. We keep anonymous counts of scans, never photos, filenames or addresses.</p>
+        <p>Your photos are checked to be real JPEG, PNG or WebP images, then re-encoded, which removes all metadata, including GPS location. They're used for this one scan by a self-hosted GPU worker running open models, kept in memory only, and deleted as soon as the scan finishes. If the scanner is busy, they're deleted anyway after eight minutes at most. The text result is kept for ten minutes so this page can show it. We keep anonymous counts of scans, never photos, filenames or addresses.</p>
       </details>
       <p class="form-error" id="formErr" role="alert" hidden></p>
     </form>
   </section>
 
   <section class="result" id="result" aria-live="polite" hidden></section>
+
+  <section class="batch" aria-labelledby="batchH">
+    <h2 id="batchH">Check a whole haul</h2>
+    <p class="section-lede">Up to 10 item photos at once, one report. Uses the invite code above. Items that look like a recall need a label photo, which you can check one at a time in the scanner.</p>
+    <form id="batchForm" class="batch-form" novalidate>
+      <label class="drop drop-batch" for="batchPhotos">
+        <input class="sr-only" type="file" id="batchPhotos" name="photos" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="batchHint batchErr">
+        <span class="drop-text"><strong>Choose up to 10 photos</strong><span id="batchHint">One item per photo. JPEG, PNG or WebP up to 8 MB each.</span></span>
+      </label>
+      <div class="thumbs-row" id="batchThumbs" aria-live="polite"></div>
+      <p class="field-error" id="batchErr" role="alert" hidden></p>
+      <div class="submit-row"><button type="submit" class="primary" id="batchBtn">Check all photos</button></div>
+    </form>
+    <div id="batchOut" class="batch-out" aria-live="polite"></div>
+  </section>
 
   <section class="lookup" aria-labelledby="lookupH">
     <h2 id="lookupH">Look up a recall</h2>

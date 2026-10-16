@@ -77,3 +77,21 @@ def test_scan_result_keeps_notes_and_closest_apart():
 
     d = ScanResult(Verdict.NO_MATCH, None, [], False, {"total_s": 1.0}, ["a note"], True).to_dict()
     assert d["notes"] == ["a note", DISCLAIMER] and d["closest"] is True
+
+
+def test_batch_sends_one_result_per_photo_in_order(monkeypatch):
+    import worker.worker as w
+
+    verdicts = iter(["NO MATCH FOUND", "POSSIBLE MATCH"])
+
+    class R:
+        def __init__(self, v):
+            self.v = v
+
+        def to_dict(self):
+            return scan(self.v, [{"recall_id": 7, "exact": []}] if self.v != "NO MATCH FOUND" else [])
+
+    monkeypatch.setattr(w, "scan", lambda img: R(next(verdicts)))
+    out = w.run_batch({"b1": object(), "b0": object()})
+    assert [i["verdict"] for i in out["items"]] == ["NO MATCH FOUND", "POSSIBLE MATCH"]
+    assert out["items"][1]["notes"] == ["label_ask"]
