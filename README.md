@@ -20,7 +20,7 @@ It's built for children's products first (cribs, bassinets, sleepers, strollers,
 
 <!-- DEMO_GIF -->
 
-**Try it: [cleartolist-demo.onrender.com](https://cleartolist-demo.onrender.com)**. Photo scans need an invite code while the service is small; the recall lookup by model number, UPC, brand or name is open to everyone.
+**Try it: [cleartolist.onrender.com](https://cleartolist.onrender.com)**. Photo scans need an invite code while the service is small; the recall lookup by model number, UPC, brand or name is open to everyone.
 
 | The scanner on a phone | Label matches a recall: CONFIRMED | Looks similar: POSSIBLE MATCH |
 |---|---|---|
