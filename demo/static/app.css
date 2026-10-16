@@ -471,3 +471,12 @@ details.invite summary::-webkit-details-marker { display: none; }
 .file-btn:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
 .file-btn.is-busy { cursor: progress; opacity: 0.8; }
 .inline-label p { margin: 0; }
+
+/* next steps after Recalled */
+.next { margin: 12px 0 4px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-control); background: #f7f9fb; }
+.seg { display: inline-flex; padding: 3px; gap: 3px; background: var(--bg); border-radius: 10px; margin-bottom: 10px; }
+.seg button { border: 0; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: var(--muted);
+  padding: 8px 14px; border-radius: 8px; min-height: 40px; cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(27, 42, 65, 0.12); }
+.next p { margin: 0 0 6px; }
+.next-h { font-weight: 700; font-size: 18px; }

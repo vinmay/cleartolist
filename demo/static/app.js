@@ -111,13 +111,13 @@ function modelsText(m) {
   if (!m.models || !m.models.length) return "Not listed. Check the full notice.";
   return m.models.join(", ") + (m.models_more ? `, and ${m.models_more} more` : "");
 }
-function rcard(m, { compact = false, codes = [] } = {}) {
+function rcard(m, { compact = false, codes = [], owners = false } = {}) {
   const title = m.heading || m.title;
   return `<div class="rcard${compact ? " compact" : ""}">
     <h3 class="rcard-title">${esc(title)}</h3>
     <p><span class="hazard">${esc(m.hazard_tag || "Hazard")}</span>${m.date ? ` <span class="muted">Recalled ${esc(fmtDate(m.date))}</span>` : ""}</p>
     ${codes.length ? `<p><strong>Matched:</strong> ${esc(codeText(codes))}</p>` : ""}
-    ${compact ? "" : `<p><strong>Affected models:</strong> ${esc(modelsText(m))}</p>${m.what_to_do ? `<p><strong>What to do:</strong> ${esc(m.what_to_do)}</p>` : ""}`}
+    ${compact ? "" : `<p><strong>Affected models:</strong> ${esc(modelsText(m))}</p>${m.what_to_do ? `<p><strong>${owners ? "For owners" : "What to do"}:</strong> ${esc(m.what_to_do)}</p>` : ""}`}
     <p class="small"><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">Full CPSC notice</a>${m.recall_id ? ` <button type="button" class="linkbtn" data-copy="${Number(m.recall_id)}">Copy link to this recall</button>` : ""}</p>
   </div>`;
 }
@@ -162,7 +162,7 @@ function recallCard(m, photo) {
   return `<article class="recall">
     <div class="pair"><figure><img src="${safeUrl(m.image_urls[0])}" alt="CPSC recall photo"><figcaption>Recall photo</figcaption></figure>
       <figure><img src="${photo}" alt="Your item photo"><figcaption>Your photo</figcaption></figure></div>
-    ${rcard(m, { codes: m.codes })}
+    ${rcard(m, { codes: m.codes, owners: true })}
   </article>`;
 }
 function strip(recalls, photo) {
@@ -174,7 +174,7 @@ function renderResult(res, hadLabel) {
   const v = res.verdict;
   // The sticker carries the verdict; the text says what it means and what to do, without repeating it.
   const lead = {
-    "CONFIRMED": "The model number or barcode on this item matches a CPSC recall. Don't list or buy it.",
+    "CONFIRMED": "The model number or barcode on this item matches a CPSC recall.",
     "POSSIBLE MATCH": hadLabel ? "It looks like these recalled products, but the label didn't settle it. Compare the photos and check the recall pages." : "It looks like these recalled products. That alone doesn't mean it's recalled: the label decides.",
     "NO MATCH FOUND": res.closest ? "No match in CPSC recalls. No match isn't proof: check the model number with the manufacturer or CPSC before you buy or sell." : "No match in CPSC recalls. This doesn't mean the item is safe. Check cpsc.gov if unsure.",
   }[v];
@@ -188,11 +188,12 @@ function renderResult(res, hadLabel) {
     <div class="shot"><img src="${photo}" alt="Your item photo">${sticker(v, false, true)}</div>
     <div class="verdict-copy"><p class="lead">${esc(lead)}</p>
       ${notes.map((n) => `<p>${esc(n)}</p>`).join("")}
+      ${v === "CONFIRMED" && res.recalls[0] ? nextSteps(res.recalls[0]) : ""}
       <p class="muted">${esc(saw)}</p>
       ${v === "POSSIBLE MATCH" ? `<div class="inline-label"><label class="secondary file-btn">Add a label photo<input type="file" class="sr-only" id="inlineLabel" accept="image/jpeg,image/png,image/webp"></label>
         <p class="muted small">We'll check it together with the photo you already added.</p><p class="field-error" id="inlineErr" role="alert" hidden></p></div>` : ""}
       <div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div></div>`;
-  if (v === "CONFIRMED") h += res.recalls.map((m) => recallCard(m, photo)).join("");
+  if (v === "CONFIRMED") { h += res.recalls.map((m) => recallCard(m, photo)).join(""); lastRecall = res.recalls[0]; }
   if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}
     <div class="ask"><p><strong>Buying, not holding it?</strong> Ask the seller for a photo of the label.</p>
     <button type="button" class="secondary" data-ask>Ask the seller for the label</button><span class="ask-msg" aria-live="polite"></span></div></div></div>`;
@@ -239,12 +240,36 @@ async function runScan(e) {
   fd.append("photo", photo);
   if (label) fd.append("label", label);
   lastItem = { file: photo };
+  lastWasScreenshot = photo.type === "image/png" || /screen ?shot|screenshot|scr[_-]/i.test(photo.name || "");
   busy($("#scanBtn"), true);
   show(loading(false), false);
   try {
     const { job } = await api("/api/jobs", { method: "POST", body: fd }, () => { $("#result").innerHTML = loading(true); });
     await pollJob(job, Boolean(label));
   } catch (err) { scanFailed(err); } finally { busy($("#scanBtn"), false); }
+}
+
+// What to do next after Recalled, for a seller or a buyer. The default comes from the upload: a screenshot
+// (a PNG, or a file named like one) is most likely a listing, so it starts on buying.
+let lastWasScreenshot = false, lastRecall = null;
+const BUY_MSG = (m) => `Hi! Before I buy: this looks like it's covered by a U.S. product recall (${m.heading || m.title}, ${m.url}). Selling recalled products isn't allowed, so I'll pass. You may be able to get a refund or fix from the maker.`;
+function nextSteps(m) {
+  const buying = lastWasScreenshot;
+  return `<div class="next" data-recall="${Number(m.recall_id) || 0}">
+    <div class="seg" role="group" aria-label="Are you selling or buying?">
+      <button type="button" data-role="sell" aria-pressed="${!buying}">I'm selling</button>
+      <button type="button" data-role="buy" aria-pressed="${buying}">I'm buying</button>
+    </div>
+    <div class="next-sell"${buying ? " hidden" : ""}>
+      <p class="next-h">Don't list it.</p>
+      <p>${m.what_to_do ? `Follow the recall: ${esc(m.what_to_do)}` : "Follow the remedy in the CPSC notice below."}</p>
+      <p class="muted">If there's no refund, repair or replacement, don't sell, donate or give it away. Before you throw it out, make it unusable (for example, cut straps or remove parts) so no one picks it up and uses it.</p>
+    </div>
+    <div class="next-buy"${buying ? "" : " hidden"}>
+      <p class="next-h">Don't buy it. Let the seller know it's recalled.</p>
+      <p><button type="button" class="secondary" data-tell="${Number(m.recall_id) || 0}">Copy a message to the seller</button><span class="ask-msg" aria-live="polite"></span></p>
+    </div>
+  </div>`;
 }
 
 // Inline label step on a Check the label result: the item photo already checked plus a new label photo.
@@ -282,6 +307,7 @@ async function runSample(btn) {
   if (urls.photo && urls.photo.startsWith("blob:")) URL.revokeObjectURL(urls.photo);
   urls.photo = btn.dataset.photo;
   lastItem = { url: btn.dataset.photo, name: btn.dataset.sample + ".jpg" };
+  lastWasScreenshot = false;
   document.querySelectorAll(".sample").forEach((b) => { b.disabled = true; });
   btn.classList.add("is-loading"); btn.setAttribute("aria-busy", "true");
   show(loading(false), false);
@@ -480,6 +506,18 @@ async function copyText(text) {
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-copy]");
   if (b) copyRecallLink(b);
+  const role = e.target.closest(".seg [data-role]");
+  if (role) {
+    const box = role.closest(".next"), buy = role.dataset.role === "buy";
+    box.querySelectorAll(".seg [data-role]").forEach((b) => b.setAttribute("aria-pressed", String(b === role)));
+    box.querySelector(".next-sell").hidden = buy; box.querySelector(".next-buy").hidden = !buy;
+  }
+  const tell = e.target.closest("[data-tell]");
+  if (tell && lastRecall) {
+    const msg = BUY_MSG(lastRecall), ok = await copyText(msg);
+    track({ event: "ask_seller" });
+    tell.nextElementSibling.textContent = ok ? " Copied. Paste it into your message to the seller." : ` Copy this: "${msg}"`;
+  }
   const h = e.target.closest("[data-helpful]");
   if (h) {
     const box = h.closest(".helpful");
