@@ -52,7 +52,7 @@ DB_URL = os.environ.get(
 )
 GALLERY = ROOT / "gallery"
 WORKER_FRESH_S = 45  # scanning is offered only while the worker has polled this recently
-UNAVAILABLE = "Scanning is temporarily unavailable. Recall lookup still works."
+UNAVAILABLE = "Scanning is temporarily unavailable. Model number lookup still works."
 JOB_ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
 CHILD = ("crib_bassinet_sleeper", "stroller", "high_chair", "play_yard", "toy", "other_child")
 
@@ -101,7 +101,7 @@ SAMPLES = {  # real scans of fixed photos (see static/samples/ATTRIBUTION.md), o
     "check": {"item": "check-item.jpg"},
     "nomatch": {"item": "nomatch-item.jpg"},
 }
-QUOTA_USED_UP = ("Today's free scans are used up. Recall lookup still works, and you can request an invite code "
+QUOTA_USED_UP = ("Today's free checks are used up. Model number lookup still works, and you can request an invite code "
                  "below.")
 
 
@@ -409,7 +409,8 @@ def api_meta() -> dict[str, Any]:
         meta: dict[str, Any] = dict(conn().execute("SELECT key, value FROM meta").fetchall())
     except sqlite3.Error as e:
         raise HTTPException(503, "Recall data is loading.") from e
-    meta["scanning"] = uploads_enabled()  # configured, not whether a worker is up
+    # No scanning or worker-availability flag here or on any other read-only endpoint: availability is only learned
+    # by submitting a scan (rate-limited), and the answer is the same generic message as the kill switch.
     meta["free_scans_today"] = QUOTA.left() > 0
     meta["invite_requests"] = STORE.available
     return meta

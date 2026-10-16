@@ -4,7 +4,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<
 const safeUrl = (u) => (/^(https:\/\/|\/gallery\/[a-f0-9]{12}\.jpg$|\/static\/samples\/[a-z-]+\.jpg$)/.test(String(u || "")) ? esc(u) : "");
 const key = (v) => ({"CONFIRMED": "CONFIRMED", "POSSIBLE MATCH": "POSSIBLE", "NO MATCH FOUND": "NOMATCH"}[v] || "NOMATCH");
 const STICKER = {"CONFIRMED": "Recalled", "POSSIBLE MATCH": "Check the label", "NO MATCH FOUND": "No match found"};
-const UNAVAILABLE = "Scanning is temporarily unavailable. Recall lookup still works.";
+const UNAVAILABLE = "Scanning is temporarily unavailable. Model number lookup still works.";
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -61,7 +61,7 @@ function clearError() {
 }
 function formError(msg) {
   const e = $("#formErr"); e.textContent = msg; e.hidden = false;
-  if (/free scans are used up/i.test(msg)) {
+  if (/free (scans|checks) are used up/i.test(msg)) {
     const a = document.createElement("a"); a.href = "#invite-request"; a.textContent = "Request an invite code";
     e.append(" ", a, ".");
   }
@@ -639,7 +639,7 @@ document.addEventListener("DOMContentLoaded", () => {
   api("/api/meta").then((m) => {
     if (m.invite_requests === false) {
       $("#inviteBtn").disabled = true;
-      const ok = $("#inviteOk"); ok.textContent = "Invite requests open soon. Free scans and the recall lookup work now."; ok.hidden = false;
+      const ok = $("#inviteOk"); ok.textContent = "Invite requests open soon. Free checks and the model number lookup work now."; ok.hidden = false;
     }
   }).catch(() => {});
 });

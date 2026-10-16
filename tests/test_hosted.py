@@ -369,7 +369,7 @@ def test_scans_without_a_code_use_the_daily_quota(client, monkeypatch):
     assert submit(client, invite="").status_code == 202
     assert submit(client, invite="", ip="2.2.2.2").status_code == 202
     r = submit(client, invite="", ip="3.3.3.3")
-    assert r.status_code == 429 and "free scans are used up" in r.json()["error"]
+    assert r.status_code == 429 and "free checks are used up" in r.json()["error"]
     assert client.get("/api/meta").json()["free_scans_today"] is False
     assert submit(client, ip="3.3.3.3").status_code == 202  # a valid invite code skips the quota
 
@@ -625,3 +625,28 @@ def test_privacy_and_terms_pages(client):
 def test_pages_scripts_and_styles_are_revalidated(client):
     for path in ("/", "/static/app.js", "/static/app.css", "/privacy"):
         assert client.get(path).headers["cache-control"] == "no-cache"
+
+
+def test_no_read_only_endpoint_reveals_whether_the_worker_is_up(client):
+    def snapshot():
+        out = {}
+        for path in ("/api/meta", "/healthz", "/api/gallery", "/api/lookup?q=stroller", "/api/recall/101", "/"):
+            r = client.get(path, headers={"X-Forwarded-For": "7.7.7.8"})
+            out[path] = (r.status_code, r.text)
+        return out
+    server.STATE["worker_seen"] = time.time()
+    up = snapshot()
+    server.STATE["worker_seen"] = 0.0
+    down = snapshot()
+    assert up == down
+    assert "scanning" not in client.get("/api/meta").json()
+
+
+def test_unavailable_and_kill_switch_give_the_same_answer(client, monkeypatch):
+    server.STATE["worker_seen"] = 0.0
+    a = client.post("/api/samples/check", headers={"X-Forwarded-For": "1.0.0.1"})
+    monkeypatch.setenv("CTL_UPLOADS_ENABLED", "0")
+    server.STATE["worker_seen"] = time.time()
+    b = client.post("/api/samples/check", headers={"X-Forwarded-For": "1.0.0.2"})
+    assert (a.status_code, a.json()) == (b.status_code, b.json()) == (
+        503, {"error": "Scanning is temporarily unavailable. Model number lookup still works."})
