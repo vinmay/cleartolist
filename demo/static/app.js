@@ -201,6 +201,8 @@ function renderResult(res, hadLabel) {
       <p class="muted">Suggestions, not matches: none of these met the bar for a possible match. If your item is one of these products, check its label against the recall page.</p>
       ${strip(res.recalls, photo)}</div></div>`;
   }
+  h += reportButtons();
+  report = { checkedAt: new Date(), items: [{ name: (lastItem && lastItem.file && lastItem.file.name) || (lastItem && lastItem.name) || "item photo", photo, result: res }] };
   h += `<div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div>`;
   h += `</div>`;
   show(h);
@@ -333,17 +335,51 @@ function showBatchThumbs() {
 }
 // CSV for spreadsheets: quote every field and neutralise cells a spreadsheet would run as a formula.
 const csvCell = (v) => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
-function batchCsv(files, items) {
-  const rows = [["photo", "verdict", "recalls", "recall links", "closest recalls to check"]];
-  items.forEach((r, i) => {
-    const shown = r.verdict !== "NO MATCH FOUND" ? r.recalls : [];
-    const closest = r.verdict === "NO MATCH FOUND" && r.closest ? r.recalls : [];
-    rows.push([files[i] ? files[i].name : `photo ${i + 1}`, r.verdict, shown.map((m) => m.heading || m.title).join(" | "),
-      shown.map((m) => m.url).join(" | "), closest.map((m) => m.heading || m.title).join(" | ")]);
+// --- reports: built in the browser from the result on screen; nothing new is stored on the server ------------
+let report = null;  // { checkedAt: Date, items: [{ name, photo, result }] }
+function reportRow(it) {
+  const r = it.result, matched = r.verdict === "CONFIRMED" ? r.recalls.slice(0, 1) : [];
+  const looks = r.verdict === "POSSIBLE MATCH" ? r.recalls : [];
+  const closest = r.verdict === "NO MATCH FOUND" && r.closest ? r.recalls : [];
+  return { matched, looks, closest };
+}
+function reportCsv() {
+  const when = report.checkedAt.toLocaleString("en-US");
+  const rows = [["photo", "verdict", "matched recall", "recall date", "recall link", "looks like (check the label)",
+    "closest recalls to check", "checked at"]];
+  report.items.forEach((it) => {
+    const { matched, looks, closest } = reportRow(it), m = matched[0];
+    rows.push([it.name, STICKER[it.result.verdict], m ? (m.heading || m.title) : "", m ? m.date : "", m ? m.url : "",
+      looks.map((x) => x.heading || x.title).join(" | "), closest.map((x) => x.heading || x.title).join(" | "), when]);
   });
   rows.push(["Screening aid only, not legal advice. No match found means no match in CPSC recalls, not that the item is safe."]);
   return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
+function downloadCsv() {
+  const url = URL.createObjectURL(new Blob([reportCsv()], { type: "text/csv" }));
+  const a = document.createElement("a"); a.href = url; a.download = "cleartolist-report.csv"; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function printReport() {
+  const when = report.checkedAt.toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" });
+  $("#printReport").innerHTML = `<h1>ClearToList report</h1><p>Checked ${esc(when)}. ${report.items.length} item${report.items.length > 1 ? "s" : ""}.</p>
+    <table><thead><tr><th>Photo</th><th>Result</th><th>Recall</th><th>Recall date</th></tr></thead><tbody>
+    ${report.items.map((it) => {
+      const { matched, looks, closest } = reportRow(it), m = matched[0];
+      const recall = m ? `${esc(m.heading || m.title)}<br><span class="url">${esc(m.url)}</span>`
+        : looks.length ? `Looks like: ${looks.map((x) => esc(x.heading || x.title)).join("; ")}. Check the label.`
+        : closest.length ? `Closest to check (not matches): ${closest.map((x) => esc(x.heading || x.title)).join("; ")}` : "None";
+      return `<tr><td><img src="${it.photo}" alt=""><div class="name">${esc(it.name)}</div></td><td><strong>${esc(STICKER[it.result.verdict])}</strong></td>
+        <td>${recall}</td><td>${m ? esc(fmtDate(m.date)) : ""}</td></tr>`;
+    }).join("")}</tbody></table>
+    <p class="fine">Screening aid only, not legal advice. "No match found" means no match in U.S. CPSC recalls, not that the item is safe. Check cpsc.gov.</p>`;
+  window.print();
+}
+function reportButtons() {
+  return `<div class="report-actions"><button type="button" class="secondary" data-report="csv">Download report (CSV)</button>
+    <button type="button" class="secondary" data-report="print">Print or save as PDF</button></div>`;
+}
+
 function renderBatch(files, items) {
   const n = (v) => items.filter((r) => r.verdict === v).length;
   const pull = n("CONFIRMED"), check = n("POSSIBLE MATCH"), none = n("NO MATCH FOUND");
@@ -357,12 +393,8 @@ function renderBatch(files, items) {
   show(`<div class="panel batch-report"><p class="summary">${pull} to pull, ${check} to check with a label photo, ${none} with no match found.</p>
     <div class="report">${items.map((r, i) => `<div class="item"><img src="${batchUrls[i] || ""}" alt="Photo ${i + 1}">
       <div><span class="tag t-${key(r.verdict)}">${esc(STICKER[r.verdict])}</span>${line(r)}</div></div>`).join("")}</div>
-    <p class="report-actions"><button type="button" class="secondary" id="csvBtn">Download the report (CSV)</button></p></div>`);
-  $("#csvBtn").addEventListener("click", () => {
-    const url = URL.createObjectURL(new Blob([batchCsv(files, items)], { type: "text/csv" }));
-    const a = document.createElement("a"); a.href = url; a.download = "cleartolist-report.csv"; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  });
+    ${reportButtons()}</div>`);
+  report = { checkedAt: new Date(), items: items.map((r, i) => ({ name: files[i] ? files[i].name : `Photo ${i + 1}`, photo: batchUrls[i] || "", result: r })) };
 }
 async function runBatch(e) {
   e.preventDefault();
@@ -506,6 +538,8 @@ async function copyText(text) {
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-copy]");
   if (b) copyRecallLink(b);
+  const rep = e.target.closest("[data-report]");
+  if (rep && report) (rep.dataset.report === "csv" ? downloadCsv : printReport)();
   const role = e.target.closest(".seg [data-role]");
   if (role) {
     const box = role.closest(".next"), buy = role.dataset.role === "buy";
@@ -552,6 +586,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => runSample(b)));
   $("#batchPhotos").addEventListener("change", showBatchThumbs);
   setupTabs();
+  window.addEventListener("afterprint", () => { $("#printReport").innerHTML = ""; });
   $("#removeLabel").addEventListener("click", closeLabelStep);
   $("#addLabelStep").addEventListener("click", () => { openLabelStep(); $("#dropLabel").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" }); $("#label").focus(); });
   $("#policyLink").addEventListener("click", (e) => {

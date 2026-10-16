@@ -483,3 +483,20 @@ details.invite summary::-webkit-details-marker { display: none; }
 .sample span { display: block; padding: 4px 2px 2px; font-size: 13px; font-weight: 600; text-align: center; line-height: 1.2; }
 @media (max-width: 640px) { .drop-main { min-height: 96px; } .steps { gap: 14px; } }
 .verdict > .helpful { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 4px; }
+
+/* report */
+.report-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.print-report { display: none; }
+@media print {
+  body { background: #fff; }
+  body > *:not(main), main > *:not(#printReport), .skip { display: none !important; }
+  main { padding: 0; max-width: none; }
+  .print-report { display: block !important; margin: 0; font-size: 12pt; color: #000; }
+  .print-report h1 { font-size: 20pt; margin: 0 0 4pt; }
+  .print-report table { width: 100%; border-collapse: collapse; margin-top: 10pt; }
+  .print-report th, .print-report td { border-bottom: 1px solid #999; padding: 6pt; text-align: left; vertical-align: top; }
+  .print-report img { width: 72pt; height: 72pt; object-fit: cover; }
+  .print-report .name { font-size: 9pt; color: #444; }
+  .print-report .url { font-size: 9pt; color: #444; word-break: break-all; }
+  .print-report .fine { font-size: 9pt; color: #444; margin-top: 12pt; }
+}
