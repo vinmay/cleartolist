@@ -7,7 +7,6 @@ const STICKER = {"CONFIRMED": "Recalled", "POSSIBLE MATCH": "Check the label", "
 const UNAVAILABLE = "Scanning is temporarily unavailable. Recall lookup still works.";
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-let recallCount = 0;
 
 function fmtDate(d) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ""));
@@ -78,10 +77,9 @@ function show(html) {
   r.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
 }
 function loading(wake) {
-  const n = recallCount ? `about ${(Math.round(recallCount / 100) * 100).toLocaleString("en-US")}` : "all the";
-  return `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${n} recalls...</strong></p>
-    <p class="muted">Reading your photo, finding the closest recall photos, and checking any model number. Usually 10 to 30 seconds.</p>
-    ${wake ? `<p class="wake">The free server was asleep and is waking up. The first scan after a quiet spell can take up to a minute.</p>` : ""}</div></div>`;
+  return `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking for recalls...</strong></p>
+    <p class="muted">This usually takes 10 to 30 seconds.</p>
+    ${wake ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
 }
 function unavailable(msg) {
   return `<div class="panel notice"><span class="dot" aria-hidden="true"></span><p>${esc(msg || UNAVAILABLE)}</p></div>`;
@@ -304,7 +302,7 @@ async function runBatch(e) {
   files.forEach((f) => fd.append("photos", f));
   $("#batchBtn").disabled = true;
   const out = $("#batchOut");
-  const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 10 seconds a photo.</p>${woke ? `<p class="wake">The free server was asleep and is waking up. This can take up to a minute.</p>` : ""}</div></div>`;
+  const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 10 seconds a photo.</p>${woke ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
   out.innerHTML = wait(false);
   try {
     const { job } = await api("/api/batches", { method: "POST", body: fd }, () => { out.innerHTML = wait(true); });
@@ -354,7 +352,7 @@ async function search(q) {
   out.innerHTML = `<p class="lookup-msg">Searching...</p>`;
   try {
     const d = await api(`/api/lookup?q=${encodeURIComponent(q)}&children=${$("#kids").checked}`, {},
-      () => { out.innerHTML = `<p class="lookup-msg">Waking up the free server. This can take up to a minute.</p>`; });
+      () => { out.innerHTML = `<p class="lookup-msg">Just a moment, the site is starting up.</p>`; });
     if (!d.results.length) { out.innerHTML = `<p class="lookup-msg">No recalls found for "${esc(q)}". That doesn't mean the item is safe. Try the brand alone, or untick children's products only.</p>`; return; }
     out.innerHTML = d.results.map((x) => `<div class="row">
       ${x.image_urls[0] ? `<img src="${safeUrl(x.image_urls[0])}" alt="" loading="lazy">` : `<span class="noimg" aria-hidden="true"></span>`}
@@ -439,14 +437,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   api("/api/meta").then((m) => {
-    recallCount = Number(m.recall_count) || 0;
-    if (recallCount && $("#dataLine")) {
-      $("#dataLine").textContent = `${recallCount.toLocaleString("en-US")} recalls, updated nightly${m.updated_at ? `, last update ${fmtDate(m.updated_at)}` : ""}.`;
-    }
-    if (recallCount && $("#recallInfo")) {
-      const when = m.updated_at ? `, last update ${fmtDate(m.updated_at)}` : "";
-      $("#recallInfo").textContent = `Your photos are checked against ${recallCount.toLocaleString("en-US")} U.S. CPSC recalls since 2015, updated nightly${when}.`;
-    }
     if (m.invite_requests === false) {
       $("#inviteBtn").disabled = true;
       const ok = $("#inviteOk"); ok.textContent = "Invite requests open soon. Free scans and the recall lookup work now."; ok.hidden = false;

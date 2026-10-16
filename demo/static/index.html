@@ -59,7 +59,7 @@
           <button type="button" class="sample" data-sample="check" data-photo="/static/samples/check-item.jpg"><img src="/static/samples/check-item.jpg" alt=""><span>Play yard</span></button>
           <button type="button" class="sample" data-sample="nomatch" data-photo="/static/samples/nomatch-item.jpg"><img src="/static/samples/nomatch-item.jpg" alt=""><span>Toy car</span></button>
         </div>
-        <p class="credit">Each runs a real scan. Photos: CPSC; Famartin, CC BY-SA 4.0; Jebulon, CC0. <a href="/static/samples/ATTRIBUTION.md">Credits</a></p>
+        <p class="credit">Each one runs a real check. <a href="/static/samples/ATTRIBUTION.md">Photo credits</a></p>
       </div>
       <ol class="steps">
         <li class="step">
@@ -98,12 +98,17 @@
 
       <div class="submit-row">
         <button type="submit" class="primary" id="scanBtn">Check for recalls</button>
-        <p class="privacy">Photos are deleted after the scan. Location data is stripped. We count anonymous usage. No cookies, no tracking.</p>
+        <p class="privacy">Your photos are deleted right after the check. No cookies, no tracking.</p>
       </div>
-      <p class="data-line" id="dataLine">U.S. CPSC recalls since 2015, updated nightly.</p>
       <details class="policy">
         <summary>How we handle photos</summary>
-        <p>Your photos are checked to be real JPEG, PNG or WebP images, then re-encoded, which removes all metadata, including GPS location. They're used for this one scan by a self-hosted GPU worker running open models, kept in memory only, and deleted as soon as the scan finishes. If the scanner is busy, they're deleted anyway after eight minutes at most. The text result is kept for ten minutes so this page can show it. We count anonymous usage as daily totals (visits, scans, results, and clicks such as "Was this helpful?"). No cookies, no tracking: we never store IP addresses, browser details, photos or filenames.</p>
+        <ul class="plain">
+          <li>We use your photos only to check them for recalls. Nothing else.</li>
+          <li>Before the check, we remove hidden details from them, like where the photo was taken.</li>
+          <li>We delete your photos as soon as the check is done. If it's busy, they're deleted within a few minutes anyway.</li>
+          <li>We never sell or share your photos, and we don't keep a copy.</li>
+          <li>No cookies and no tracking. We only count things like how many checks were done each day, without knowing who did them.</li>
+        </ul>
       </details>
       <p class="form-error" id="formErr" role="alert" hidden></p>
     </form>
@@ -116,7 +121,7 @@
     <div class="how-grid">
       <div>
         <h3>What it checks</h3>
-        <p id="recallInfo">Your photos are checked against U.S. CPSC recalls since 2015, updated nightly.</p>
+        <p>Your photos are checked against the official U.S. list of product recalls from the Consumer Product Safety Commission (CPSC), going back to 2015 and kept up to date.</p>
         <p>Car seats aren't included: they're recalled through NHTSA.</p>
       </div>
       <div>

@@ -364,3 +364,5 @@ input[type=text]:focus-visible, input[type=search]:focus-visible, input[type=ema
 .camera { display: inline-block; margin-top: 8px; font-size: 15px; font-weight: 600; color: var(--blue); text-decoration: underline;
   text-underline-offset: 2px; cursor: pointer; }
 .camera:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+.policy .plain { margin: 8px 0 0; padding-left: 20px; }
+.policy .plain li { margin: 4px 0; }
