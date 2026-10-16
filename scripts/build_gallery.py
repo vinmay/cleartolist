@@ -136,12 +136,13 @@ def pairs(n: int, seed: int = 11, with_codes: bool = False) -> list[dict[str, An
     return out
 
 
-def from_eval(n: int) -> list[dict[str, Any]]:
+def from_eval(n: int, run: str = "children", seed: int = 3) -> list[dict[str, Any]]:
+    """n randomly sampled positives from one eval run ("children" or "mixed")."""
     conn = sqlite3.connect(DB_PATH)
     qs = [q for q in json.loads(Path("eval/work/queries.json").read_text())
-          if q["run"] == "children" and q["label"] == "pos"]
+          if q["run"] == run and q["label"] == "pos"]
     out = []
-    for q in random.Random(3).sample(qs, n):
+    for q in random.Random(seed).sample(qs, n):
         r = scan(q["path"], exclude_keys=q["exclude"]).to_dict()
         e = {"id": f"single-{q['recall_id']}", "kind": "single", "photo_url": remote_url(conn, q["held_out"]),
              "photo_source": SIMULATED, "item": card(conn, r), "truth": truth_of(conn, q["recall_id"], r, r)}
@@ -173,9 +174,10 @@ def main() -> None:
     ap.add_argument("--pairs", type=int, default=0)
     ap.add_argument("--selected-pairs", type=int, default=0, help="pairs whose label confirms (disclosed as selected)")
     ap.add_argument("--from-eval", type=int, default=0, help="add N children's eval positives (simulated photos)")
+    ap.add_argument("--from-eval-mixed", type=int, default=0, help="add N other-category eval positives, random")
     a = ap.parse_args()
     entries = (owner(a.photos, a.source) + pairs(a.selected_pairs, seed=23, with_codes=True) + pairs(a.pairs)
-               + from_eval(a.from_eval))
+               + from_eval(a.from_eval) + from_eval(a.from_eval_mixed, run="mixed", seed=5))
     save(entries)
 
 

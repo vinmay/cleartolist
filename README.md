@@ -1,6 +1,6 @@
 # ClearToList
 
-**Check secondhand children's products against U.S. product recalls before you list them.**
+**Check secondhand products against U.S. product recalls before you list them, children's products first.**
 
 Resellers buy unboxed, unbranded secondhand items with no SKU, so catalog-based recall tools can't help them. And selling a recalled consumer product is illegal no matter how small the seller. ClearToList works in two photos: a photo of the item finds the closest CPSC recalls, and a photo of its label settles it by model number or UPC. You get one of three verdicts:
 
@@ -14,7 +14,7 @@ Only CONFIRMED is an alarm. Looking similar never is: in testing, too many ordin
 
 The workflow: **photograph your haul at home, then check each item before you list it**, either on the hosted site or with the whole scanner on your own computer. Both run the same open models.
 
-It's built for children's products first (cribs, bassinets, sleepers, strollers, high chairs, play yards, toys), the highest-risk category for resellers. The index covers every CPSC consumer-product recall since 2015, except motor vehicles (out of scope). Car seats are regulated by NHTSA, not CPSC, so they're excluded; see [Scope](#scope).
+It covers every in-scope CPSC consumer-product recall since 2015, and it's tuned and measured for children's products first (cribs, bassinets, sleepers, strollers, high chairs, play yards, toys), the highest-risk category for resellers. Other categories (heaters, chargers, furniture, kitchen goods, tools, sports gear, apparel and so on) are checked the same way and measured separately. Motor vehicles are out of scope, and car seats are regulated by NHTSA, not CPSC, so they're excluded; see [Scope](#scope).
 
 > **Screening aid only, not legal advice.** Results can be wrong in both directions. "No match" means no match in CPSC recalls, not that an item is safe. Always confirm at [cpsc.gov/Recalls](https://www.cpsc.gov/Recalls).
 
@@ -133,6 +133,7 @@ What this says, plainly:
 - **The label photo is what makes a verdict reliable.** CONFIRMED needs a model number or UPC read off the item that matches a recall; with the brand check it's right 4 of 5 times across all three test sets and raises no false alarm on 124 lookalikes. Generic-looking products (cribs and sleepers: 45% image top-3; furniture: 40%) depend on that label, and on label close-ups Gemma's reading finds the recall where image search can't (60% vs 18% top-3).
 - **The kill criterion** set before building the app was about 60% top-3 on children's products, from the photo alone; the spike passed at 71% (n=90) and the test lands at 67-69%. It measures whether retrieval is worth building on, not what a user sees, which is the 34% above.
 - **What's weak:** a standalone label photo rarely clears the image-similarity gate (15% shown right), which is why the two-photo flow reads the label for codes instead of treating it as an item photo.
+- **Other categories prompt more often.** For non-children's products, the item photo finds the right recall about as well (64% top-3, 37% shown), but ordinary lookalikes get a POSSIBLE MATCH prompt 24% of the time, against 5% for children's products. It's worst for sports and recreation (42%), kitchen (36%) and tools and outdoor (33%), where many recalled products look like everyday ones. The single similarity threshold was chosen on all dev categories together; per-category thresholds, chosen on dev, are the next planned fix. The prompt is never an alarm: CONFIRMED raised no false alarm on 83 other-category lookalikes after the brand check.
 
 **Post-test display policy, disclosed: Run 3b** ([details](eval/display_policy.md)). When nothing triggers for a children's product, the page now shows its three closest recalls in grey as "closest recalls to check", worded as suggestions, not matches, with no alarm; the verdict stays NO MATCH FOUND. The rule (adopt only if right recall shown rises at least 15 points on dev) was fixed first; on dev it rose 25% → 59% for children's products, so it was adopted and applied once to the saved Run 3 rows: 34% → 63%. The cost is plain in the table: nearly every children's lookalike (98%) now gets three suggestions too, which is why they're grey and never called a match. Alarms are unchanged: CONFIRMED still needs a code.
 
@@ -141,6 +142,13 @@ What this says, plainly:
 Limits: positives are official product photos degraded to look like phone shots, not real thrift-store photos; Commons negatives aren't verified non-recalled (two were removed after an audit, see the manifest); play yards (1 positive) and high chairs (13) are too small to read anything into.
 
 **How we got here, disclosed.** Run 1 ([results](eval/results_run1.md)) used a Gemma verifier and LIKELY/UNSURE verdicts. Error analysis on Run 1's test results found two bugs, fixed in 7bff2ed; Run 2 ([results](eval/results_run2.md)) re-ran the same queries, so its gain over Run 1 is optimistic. The verifier was then taken out of the alarm path entirely, the gate was chosen on the dev split only, and Run 3 ran the test set once with no changes after. On dev, the verifier added one query of top-3 (95 to 96 of 153) for about 23 s more per scan, so it was dropped.
+
+## What's next
+
+- **Per-category POSSIBLE MATCH thresholds**, chosen on the dev split, to cut prompts on other-category lookalikes.
+- **More recall sources:** the EU Safety Gate (it publishes product photos) and Health Canada recalls, for resellers outside the U.S.
+- **Real thrift-store photos** in the evaluation (the harness is ready: `eval/owner_photos/`).
+- **More scanning capacity:** the same worker on rented on-demand GPUs.
 
 ## Why open models
 

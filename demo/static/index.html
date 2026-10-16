@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClearToList: check your haul for recalls</title>
-<meta name="description" content="Check secondhand children's products against U.S. CPSC recalls before you list them.">
+<meta name="description" content="Check secondhand products against U.S. CPSC recalls before you list them, children's products first.">
 <meta name="theme-color" content="#EEF1F4">
 <link rel="preload" href="/static/fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css">
@@ -21,7 +21,7 @@
   <section class="hero" id="scanner" aria-labelledby="h1">
     <div class="intro">
       <h1 id="h1">Check your haul for recalls before you list it.</h1>
-      <p class="lede">Built for children's products first: cribs, bassinets, strollers, high chairs, play yards and toys, matched against every U.S. CPSC recall since 2015.</p>
+      <p class="lede">For secondhand products, children's first: cribs, bassinets, strollers, high chairs and toys, plus heaters, chargers, furniture, tools and everything else in U.S. CPSC recalls since 2015.</p>
     </div>
 
     <form id="scanForm" class="scanner" novalidate>
@@ -85,14 +85,17 @@
       <button type="button" class="chip" data-q="high chair">High chair</button>
       <button type="button" class="chip" data-q="bassinet">Bassinet</button>
       <button type="button" class="chip" data-q="play yard mattress">Play yard mattress</button>
+      <button type="button" class="chip" data-q="space heater">Space heater</button>
+      <button type="button" class="chip" data-q="power bank">Power bank</button>
+      <button type="button" class="chip" data-q="dresser">Dresser</button>
     </div>
-    <label class="check"><input type="checkbox" id="kids" checked> Children's products only</label>
+    <label class="check"><input type="checkbox" id="kids"> Children's products only</label>
     <div id="lookupOut" class="lookup-out" aria-live="polite"></div>
   </section>
 
   <section class="examples" aria-labelledby="exH">
     <h2 id="exH">Example scans</h2>
-    <p class="section-lede">In our held-out test, an item photo alone showed the right recall for about a third of children's products, and nearly two-thirds once the closest recalls are listed as suggestions. A matching label confirmed the right recall 4 times out of 5. <a href="https://github.com/vinmay/cleartolist#evaluation">How we measured this</a></p>
+    <p class="section-lede">In our held-out test, an item photo alone showed the right recall about a third of the time, for children's products (34%) and other categories (37%) alike; for children's products, listing the closest recalls as suggestions raises that to nearly two-thirds. A matching label confirmed the right recall 4 times out of 5. <a href="https://github.com/vinmay/cleartolist#evaluation">How we measured this</a></p>
     <div id="gallery" class="gallery"></div>
   </section>
 </main>

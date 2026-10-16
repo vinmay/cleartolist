@@ -387,5 +387,96 @@
    "url": "https://www.cpsc.gov/Recalls/2022/UPPAbaby-Recalls-RIDGE-Jogging-Strollers-Due-to-Fingertip-Amputation-Hazard-One-Injury-to-Child-Reported",
    "outcome": "missed"
   }
+ },
+ {
+  "id": "single-8564",
+  "kind": "single",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/2_15.jpg",
+  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
+  "item": {
+   "verdict": "NO MATCH FOUND",
+   "recalls": [],
+   "read_summary": "backpack",
+   "seconds": 34.85,
+   "note": ""
+  },
+  "truth": {
+   "title": "Revelate Designs Recalls Bicycle Seat Bags Due to Crash, Injury Hazards",
+   "url": "https://www.cpsc.gov/Recalls/2019/Revelate-Designs-Recalls-Bicycle-Seat-Bags-Due-to-Crash-Injury-Hazards",
+   "outcome": "missed"
+  }
+ },
+ {
+  "id": "single-9720",
+  "kind": "single",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/DreamAway-Mattress.png",
+  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
+  "item": {
+   "verdict": "POSSIBLE MATCH",
+   "recalls": [
+    {
+     "title": "FXI Recalls Novaform ComfortGrande and DreamAway Mattresses Due to Risk of Mold Exposure; Sold Exclusively at Costco (Recall Alert)",
+     "url": "https://www.cpsc.gov/Recalls/2023/FXI-Recalls-Novaform-ComfortGrande-and-DreamAway-Mattresses-Due-to-Risk-of-Mold-Exposure-Sold-Exclusively-at-Costco-Recall-Alert",
+     "image_url": "https://www.cpsc.gov/s3fs-public/ComfortGrande-Mattress.png",
+     "code": ""
+    },
+    {
+     "title": "Regfear Recalls BedsPick Mattresses Due to Risk of Serious Injury or Death from Fire; Violate Mandatory Flammability Standard for Mattresses",
+     "url": "https://cpsc.gov/Recalls/2026/Regfear-Recalls-BedsPick-Mattresses-Due-to-Risk-of-Serious-Injury-or-Death-from-Fire-Violate-Mandatory-Flammability-Standard-for-Mattresses",
+     "image_url": "https://www.cpsc.gov/s3fs-public/Picture1_179.png",
+     "code": ""
+    },
+    {
+     "title": "Amazon Recalls AmazonBasics Mattresses Due to Violation of Federal Flammability Standard (Recall Alert)",
+     "url": "https://www.cpsc.gov/Recalls/2022/Amazon-Recalls-AmazonBasics-Mattresses-Due-to-Violation-of-Federal-Flammability-Standard-Recall-Alert",
+     "image_url": "https://www.cpsc.gov/s3fs-public/pic1_25.png",
+     "code": ""
+    }
+   ],
+   "read_summary": "bedding, novaform",
+   "seconds": 6.61,
+   "note": ""
+  },
+  "truth": {
+   "title": "FXI Recalls Novaform ComfortGrande and DreamAway Mattresses Due to Risk of Mold Exposure; Sold Exclusively at Costco (Recall Alert)",
+   "url": "https://www.cpsc.gov/Recalls/2023/FXI-Recalls-Novaform-ComfortGrande-and-DreamAway-Mattresses-Due-to-Risk-of-Mold-Exposure-Sold-Exclusively-at-Costco-Recall-Alert",
+   "outcome": "right recall in the shortlist"
+  }
+ },
+ {
+  "id": "single-7751",
+  "kind": "single",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/Recall.2016.16177.16177a.jpg",
+  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
+  "item": {
+   "verdict": "NO MATCH FOUND",
+   "recalls": [],
+   "read_summary": "portable speaker, 1903642875113",
+   "seconds": 6.07,
+   "note": ""
+  },
+  "truth": {
+   "title": "Rheem Recalls to Repair Water Heaters Due to Fire and Burn Hazards; Sold Exclusively at Home Depot",
+   "url": "https://www.cpsc.gov/Recalls/2016/Rheem-Recalls-to-Repair-Water-Heaters",
+   "outcome": "missed"
+  }
+ },
+ {
+  "id": "single-10722",
+  "kind": "single",
+  "photo_url": "https://www.cpsc.gov/s3fs-public/Picture15.gif",
+  "photo_source": "Simulated: held-out CPSC photos (linked) were cropped, rotated, dimmed and blurred, then scanned with those photos hidden from the index. Not a real thrift photo.",
+  "item": {
+   "verdict": "NO MATCH FOUND",
+   "recalls": [],
+   "read_summary": "portable speaker, 1234567890123",
+   "seconds": 4.66,
+   "note": ""
+  },
+  "truth": {
+   "title": "Fengrong Tool Recalls Pressure Washers Due to Serious Risk of Injury or Death from Shock and Electrocution Hazards",
+   "url": "https://www.cpsc.gov/Recalls/2026/Fengrong-Tool-Recalls-Pressure-Washers-Due-to-Serious-Risk-of-Injury-or-Death-from-Shock-and-Electrocution-Hazards",
+   "outcome": "missed"
+  }
  }
 ]
