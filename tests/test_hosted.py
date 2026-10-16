@@ -748,3 +748,9 @@ def test_admin_invites_page_lists_requests_behind_the_admin_secret(client):
     r = client.get("/admin/invites", headers=basic(ADMIN))
     assert r.status_code == 200 and "2 total" in r.text and "Strollers" in r.text
     assert r.text.index("second@example.com") < r.text.index("first@example.com")
+
+
+def test_hyphenated_brands_search_as_one_phrase():
+    assert server.fts_query("fisher-price") == '"fisher price"'
+    assert server.fts_query("Graco  high chair") == '"graco" "high" "chair"'
+    assert server.fts_query("--") == ""

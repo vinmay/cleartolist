@@ -24,7 +24,7 @@ CREATE TABLE upcs (recall_id INTEGER, upc TEXT);
 CREATE INDEX idx_models ON model_numbers(model);
 CREATE INDEX idx_upcs ON upcs(upc);
 CREATE VIRTUAL TABLE recalls_fts USING fts5(
-    title, products, manufacturers, description, content='recalls', content_rowid='recall_id',
+    title, products, companies, description, content='',
     tokenize='porter unicode61'
 );
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
@@ -46,10 +46,15 @@ def build(src: Path, out: Path) -> int:
         prods = s.execute("SELECT name, model FROM products WHERE recall_id=?", (rid,)).fetchall()
         products = "; ".join(f"{name} {model}".strip() for name, model in prods)
         image_urls = [i["URL"] for i in (json.loads(raw).get("Images") or []) if i.get("URL")]
-        mf_names = ", ".join(json.loads(mf or "[]"))
+        raw_d = json.loads(raw)
+        # Every company CPSC names (maker, retailer, importer, distributor), so a brand search finds e.g. IKEA,
+        # which CPSC lists as retailer and importer rather than manufacturer.
+        companies = json.loads(mf or "[]") + [c.get("Name", "") for k in ("Manufacturers", "Retailers", "Importers",
+                                                                           "Distributors") for c in raw_d.get(k) or []]
+        mf_names = "; ".join(dict.fromkeys(c for c in companies if c))
         d.execute("INSERT INTO recalls VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                   (rid, num, date, title, desc, url, hz, rm, mf, cat, products, json.dumps(image_urls[:4])))
-        d.execute("INSERT INTO recalls_fts(rowid, title, products, manufacturers, description) VALUES (?,?,?,?,?)",
+        d.execute("INSERT INTO recalls_fts(rowid, title, products, companies, description) VALUES (?,?,?,?,?)",
                   (rid, title, products, mf_names, desc))
         n += 1
     keep = {r for (r,) in d.execute("SELECT recall_id FROM recalls")}

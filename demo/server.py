@@ -267,8 +267,14 @@ def norm_upc(s: str) -> str:
 
 
 def fts_query(q: str) -> str:
-    words = re.findall(r"[\w']+", q.lower())
-    return " ".join(f'"{w}"' for w in words[:12])
+    """Each whitespace-separated term becomes an FTS phrase, so "fisher-price" matches the brand as a whole
+    rather than "fisher" or "price" on their own."""
+    terms = []
+    for term in q.lower().split()[:12]:
+        words = re.findall(r"[\w']+", term)
+        if words:
+            terms.append('"' + " ".join(words) + '"')
+    return " ".join(terms)
 
 
 def models_of(c: sqlite3.Connection, recall_id: int) -> list[str]:
