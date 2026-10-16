@@ -324,3 +324,6 @@ footer.site p { margin: 0 0 6px; max-width: 70ch; }
 .how-grid p:last-child { margin-bottom: 0; }
 @media (min-width: 900px) { .how-grid { grid-template-columns: repeat(3, 1fr); } }
 .rcard p.small { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+
+.legal { margin: 0 0 4px; font-weight: 600; font-size: 17px; }
+.legal a { color: var(--ink); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
