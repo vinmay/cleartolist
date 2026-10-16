@@ -620,3 +620,8 @@ def test_privacy_and_terms_pages(client):
     home = client.get("/").text
     assert 'href="/privacy"' in home and 'href="/terms"' in home and "mailto:cleartolist@gmail.com" in home
     assert "Built by V" not in home and "Famartin" in client.get("/terms").text
+
+
+def test_pages_scripts_and_styles_are_revalidated(client):
+    for path in ("/", "/static/app.js", "/static/app.css", "/privacy"):
+        assert client.get(path).headers["cache-control"] == "no-cache"

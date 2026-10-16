@@ -214,6 +214,8 @@ async def harden(request: Request, call_next):
         resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     if request.url.path.startswith(("/api/", "/worker/", "/admin/")):
         resp.headers["Cache-Control"] = "no-store"
+    elif request.url.path.endswith((".js", ".css", ".html")) or request.url.path in ("/", "/privacy", "/terms"):
+        resp.headers["Cache-Control"] = "no-cache"  # reuse only after checking with the server, so deploys show up
     return resp
 
 
