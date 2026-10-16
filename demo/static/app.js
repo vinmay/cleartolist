@@ -99,23 +99,33 @@ function noteText(n, res) {
     car_seat: "Car seats are regulated by NHTSA, not CPSC, and aren't covered here. Check nhtsa.gov/recalls.",
   }[n] || "";
 }
+// Short recall card: brand + product heading, one-word hazard, date, affected models, what to do, small link.
+const codeText = (codes) => (codes || []).map((c) => c.replace(/^(model|upc):/, (x, k) => (k === "upc" ? "UPC " : "model "))).join(", ");
+function modelsText(m) {
+  if (!m.models || !m.models.length) return "Not listed. Check the full notice.";
+  return m.models.join(", ") + (m.models_more ? `, and ${m.models_more} more` : "");
+}
+function rcard(m, { compact = false, codes = [] } = {}) {
+  const title = m.heading || m.title;
+  return `<div class="rcard${compact ? " compact" : ""}">
+    <h3 class="rcard-title">${esc(title)}</h3>
+    <p><span class="hazard">${esc(m.hazard_tag || "Hazard")}</span>${m.date ? ` <span class="muted">Recalled ${esc(fmtDate(m.date))}</span>` : ""}</p>
+    ${codes.length ? `<p><strong>Matched:</strong> ${esc(codeText(codes))}</p>` : ""}
+    ${compact ? "" : `<p><strong>Affected models:</strong> ${esc(modelsText(m))}</p>${m.what_to_do ? `<p><strong>What to do:</strong> ${esc(m.what_to_do)}</p>` : ""}`}
+    <p class="small"><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">Full CPSC notice</a></p>
+  </div>`;
+}
+
 function recallCard(m, photo) {
   return `<article class="recall">
     <div class="pair"><figure><img src="${safeUrl(m.image_urls[0])}" alt="CPSC recall photo"><figcaption>Recall photo</figcaption></figure>
       <figure><img src="${photo}" alt="Your item photo"><figcaption>Your photo</figcaption></figure></div>
-    <div><h3>${esc(m.title)}</h3>
-      <dl class="facts">
-        ${m.codes && m.codes.length ? `<dt>Matched</dt><dd class="codes">${esc(m.codes.map((c) => c.replace(/^(model|upc):/, (x, k) => (k === "upc" ? "UPC " : "Model "))).join(", "))}</dd>` : ""}
-        <dt>Recalled</dt><dd>${esc(fmtDate(m.date))}</dd>
-        <dt>Hazard</dt><dd>${esc(m.hazards.join(" ") || "See the recall page.")}</dd>
-        <dt>Remedy</dt><dd>${esc(m.remedies.join(" ") || "See the recall page.")}</dd>
-      </dl>
-      <p><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">Read the recall on cpsc.gov</a></p></div>
+    ${rcard(m, { codes: m.codes })}
   </article>`;
 }
 function strip(recalls, photo) {
   return `<div class="strip"><figure><img src="${photo}" alt="Your item photo"><figcaption>Your photo</figcaption></figure>
-    ${recalls.map((m) => `<figure><img src="${safeUrl(m.image_urls[0])}" alt="Recall photo"><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a></figure>`).join("")}</div>`;
+    ${recalls.map((m) => `<figure><img src="${safeUrl(m.image_urls[0])}" alt="Recall photo">${rcard(m, { compact: true })}</figure>`).join("")}</div>`;
 }
 function renderResult(res, hadLabel) {
   const photo = urls.photo || "";
@@ -216,8 +226,8 @@ function batchCsv(files, items) {
   items.forEach((r, i) => {
     const shown = r.verdict !== "NO MATCH FOUND" ? r.recalls : [];
     const closest = r.verdict === "NO MATCH FOUND" && r.closest ? r.recalls : [];
-    rows.push([files[i] ? files[i].name : `photo ${i + 1}`, r.verdict, shown.map((m) => m.title).join(" | "),
-      shown.map((m) => m.url).join(" | "), closest.map((m) => m.title).join(" | ")]);
+    rows.push([files[i] ? files[i].name : `photo ${i + 1}`, r.verdict, shown.map((m) => m.heading || m.title).join(" | "),
+      shown.map((m) => m.url).join(" | "), closest.map((m) => m.heading || m.title).join(" | ")]);
   });
   rows.push(["Screening aid only, not legal advice. No match found means no match in CPSC recalls, not that the item is safe."]);
   return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
@@ -225,10 +235,11 @@ function batchCsv(files, items) {
 function renderBatch(files, items) {
   const n = (v) => items.filter((r) => r.verdict === v).length;
   const pull = n("CONFIRMED"), check = n("POSSIBLE MATCH"), none = n("NO MATCH FOUND");
+  const names = (rs) => rs.map((m) => `${esc(m.heading || m.title)} (<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">notice</a>)`).join("; ");
   const line = (r) => {
-    if (r.verdict === "CONFIRMED") return `<p>Matched ${esc((r.recalls[0].codes || []).map((c) => c.replace(/^(model|upc):/, (x, k) => (k === "upc" ? "UPC " : "model "))).join(", "))}: <a href="${safeUrl(r.recalls[0].url)}" target="_blank" rel="noopener">${esc(r.recalls[0].title)}</a></p>`;
-    if (r.verdict === "POSSIBLE MATCH") return `<p>Looks like: ${r.recalls.map((m) => `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>`).join("; ")}</p><p class="muted">Check its label in the scanner above.</p>`;
-    if (r.closest && r.recalls.length) return `<p class="muted">Closest recalls to check (suggestions, not matches): ${r.recalls.map((m) => `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>`).join("; ")}</p>`;
+    if (r.verdict === "CONFIRMED") return `<p>Matched ${esc(codeText(r.recalls[0].codes))}: ${names(r.recalls.slice(0, 1))}</p>`;
+    if (r.verdict === "POSSIBLE MATCH") return `<p>Looks like: ${names(r.recalls)}</p><p class="muted">Check its label in the scanner above.</p>`;
+    if (r.closest && r.recalls.length) return `<p class="muted">Closest recalls to check (suggestions, not matches): ${names(r.recalls)}</p>`;
     return `<p class="muted">No match in CPSC recalls. This does not mean the item is safe.</p>`;
   };
   $("#batchOut").innerHTML = `<p class="summary">${pull} to pull, ${check} to check with a label photo, ${none} with no match found.</p>
@@ -308,8 +319,7 @@ async function search(q) {
     if (!d.results.length) { out.innerHTML = `<p class="lookup-msg">No recalls found for "${esc(q)}". That doesn't mean the item is safe. Try the brand alone, or untick children's products only.</p>`; return; }
     out.innerHTML = d.results.map((x) => `<div class="row">
       ${x.image_urls[0] ? `<img src="${safeUrl(x.image_urls[0])}" alt="" loading="lazy">` : `<span class="noimg" aria-hidden="true"></span>`}
-      <div><h3><a href="${safeUrl(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></h3>
-      <p>Recalled ${esc(fmtDate(x.date))}</p><p>${esc(x.hazards.join(" "))}</p></div></div>`).join("");
+      ${rcard(x, { compact: true })}</div>`).join("");
   } catch (e) { out.innerHTML = `<p class="lookup-msg">${esc(e.message)}</p>`; }
 }
 
@@ -332,13 +342,12 @@ async function gallery() {
       const fin = s.final || s.item;
       const matched = fin.verdict !== "NO MATCH FOUND";  // a no-match card never presents a recall as its match
       const m = matched ? fin.recalls[0] : null;
-      const suggestions = !matched && fin.recalls.length ? `<p class="muted">Closest recalls to check (suggestions, not matches): ${fin.recalls.map((x) => esc(x.title)).join("; ")}</p>` : "";
+      const suggestions = !matched && fin.recalls.length ? `<p class="muted">Closest recalls to check (suggestions, not matches): ${fin.recalls.map((x) => esc(x.heading || x.title)).join("; ")}</p>` : "";
       return `<article class="example">
         <div class="shot"><img src="${safeUrl(s.photo_url)}" alt="Item photo">${sticker(fin.verdict, true)}</div>
         <div>
           ${s.kind === "pair" ? `<div class="label-thumb"><img src="${safeUrl(s.label_photo_url)}" alt="Label photo"><span>Item photo plus this label photo</span></div>` : ""}
-          <h3>${m ? `<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : "No match in CPSC recalls"}</h3>${suggestions}
-          ${m && m.code ? `<p>Matched ${esc(m.code.replace(/model:/g, "model ").replace(/upc:/g, "UPC "))}</p>` : ""}
+          ${m ? rcard(m, { compact: true, codes: m.code ? m.code.split(", ") : [] }) : `<h3 class="rcard-title">No match in CPSC recalls</h3>${suggestions}`}
           <p>${esc(s.truth ? OUTCOME[s.truth.outcome] || "" : "")}</p>
           <p class="kind">${s.set === "curated" ? esc(s.photo_source) : "Random sample from the test photos, simulated from held-out CPSC photos."}</p>
         </div></article>`;

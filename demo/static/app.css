@@ -308,3 +308,11 @@ footer.site p { margin: 0 0 6px; max-width: 70ch; }
 .results thead th { font-weight: 700; }
 .results tbody th { font-weight: 400; color: var(--muted); max-width: 26ch; }
 .results td { font-weight: 700; white-space: nowrap; }
+
+/* short recall cards everywhere: headings are not links */
+.rcard-title { color: var(--ink); }
+.recall .rcard-title, .row .rcard-title { font-size: 18px; }
+.rcard.compact .rcard-title { font-size: 15px; line-height: 1.3; margin: 6px 0 4px; font-stretch: 100%; }
+.rcard.compact p { font-size: 14px; }
+.strip .rcard { margin-top: 2px; }
+.row .rcard-title { margin-top: 0; }

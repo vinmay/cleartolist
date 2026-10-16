@@ -33,7 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.formparsers import MultiPartParser
 
-from demo import security
+from demo import cards, security
 from demo import store as signup_store
 from demo.jobs import MAX_BATCH, JobQueue, QueueFull, TooManyPending
 
@@ -247,14 +247,20 @@ def fts_query(q: str) -> str:
     return " ".join(f'"{w}"' for w in words[:12])
 
 
-def row(r: sqlite3.Row, why: str) -> dict[str, Any]:
-    return {
+def models_of(c: sqlite3.Connection, recall_id: int) -> list[str]:
+    return [m for (m,) in c.execute("SELECT DISTINCT model FROM model_numbers WHERE recall_id=? ORDER BY model",
+                                     (recall_id,))]
+
+
+def row(r: sqlite3.Row, why: str, c: sqlite3.Connection | None = None) -> dict[str, Any]:
+    d = {
         "recall_id": r["recall_id"], "recall_number": r["recall_number"], "date": r["recall_date"],
         "title": r["title"], "url": r["url"], "category": r["category"],
         "hazards": json.loads(r["hazards"] or "[]"), "remedies": json.loads(r["remedies"] or "[]"),
         "manufacturers": json.loads(r["manufacturers"] or "[]"), "products": r["products"],
         "image_urls": json.loads(r["image_urls"] or "[]"), "match": why,
     }
+    return d | cards.card_fields(d, models_of(c or conn(), r["recall_id"]))
 
 
 def lookup(q: str, children_only: bool = False, limit: int = 20) -> list[dict[str, Any]]:
@@ -265,10 +271,10 @@ def lookup(q: str, children_only: bool = False, limit: int = 20) -> list[dict[st
     m, u = norm_model(q), norm_upc(q)
     if len(u) >= 11:
         for r in c.execute("SELECT r.* FROM upcs x JOIN recalls r USING(recall_id) WHERE x.upc=?", (u,)):
-            out.setdefault(r["recall_id"], row(r, f"UPC {u}"))
+            out.setdefault(r["recall_id"], row(r, f"UPC {u}", c))
     if 4 <= len(m) <= 20 and re.search(r"\d", m):
         for r in c.execute("SELECT r.* FROM model_numbers x JOIN recalls r USING(recall_id) WHERE x.model=?", (m,)):
-            out.setdefault(r["recall_id"], row(r, f"model number {m}"))
+            out.setdefault(r["recall_id"], row(r, f"model number {m}", c))
     fq = fts_query(q)
     if fq:
         sql = ("SELECT r.* FROM recalls_fts f JOIN recalls r ON r.recall_id=f.rowid WHERE recalls_fts MATCH ? "
@@ -276,7 +282,7 @@ def lookup(q: str, children_only: bool = False, limit: int = 20) -> list[dict[st
         # All words first, then any word, so "graco stroller" still returns Graco and stroller recalls.
         for expr, why in ((fq, "text search"), (fq.replace('" "', '" OR "'), "partial text match")):
             for r in c.execute(sql, (expr, limit * 3)):
-                out.setdefault(r["recall_id"], row(r, why))
+                out.setdefault(r["recall_id"], row(r, why, c))
             if len(out) >= limit:
                 break
     res = [x for x in out.values() if cat_ok(x["category"])]
@@ -303,7 +309,17 @@ def api_gallery(set: Literal["curated", "sample", "all"] = "all") -> list[dict[s
     """curated: the homepage's selected examples; sample: the random sample shown on /how-we-measured."""
     p = GALLERY / "gallery.json"
     items = json.loads(p.read_text()) if p.exists() else []
-    return items if set == "all" else [i for i in items if i.get("set") == set]
+    items = items if set == "all" else [i for i in items if i.get("set") == set]
+    c = conn()
+    for it in items:  # add the short card fields from this server's recall data
+        for step in (it.get("item"), it.get("final"), it.get("truth")):
+            for rec in (step or {}).get("recalls", []) + ([step] if step and "outcome" in step else []):
+                r = c.execute("SELECT * FROM recalls WHERE url=?", (rec.get("url"),)).fetchone()
+                if r is not None:
+                    full = row(r, "", c)
+                    rec.update({k: full[k] for k in ("recall_id", "heading", "hazard_tag", "models", "models_more",
+                                                     "what_to_do", "date")})
+    return items
 
 
 @app.get("/how-we-measured", response_class=HTMLResponse)
@@ -540,7 +556,7 @@ def render_result(w: WorkerResult) -> dict[str, Any]:
         if r is None:
             continue
         codes = [x for x in p.codes if CODE.match(x) and code_in_db(c, p.recall_id, x)]
-        card = row(r, "")
+        card = row(r, "", c)
         card["codes"] = codes
         cards.append(card)
     verdict = w.verdict
