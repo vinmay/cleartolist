@@ -482,3 +482,4 @@ details.invite summary::-webkit-details-marker { display: none; }
 .next-h { font-weight: 700; font-size: 18px; }
 .sample span { display: block; padding: 4px 2px 2px; font-size: 13px; font-weight: 600; text-align: center; line-height: 1.2; }
 @media (max-width: 640px) { .drop-main { min-height: 96px; } .steps { gap: 14px; } }
+.verdict > .helpful { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 4px; }

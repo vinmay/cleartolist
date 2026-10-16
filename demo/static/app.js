@@ -191,8 +191,7 @@ function renderResult(res, hadLabel) {
       ${v === "CONFIRMED" && res.recalls[0] ? nextSteps(res.recalls[0]) : ""}
       <p class="muted">${esc(saw)}</p>
       ${v === "POSSIBLE MATCH" ? `<div class="inline-label"><label class="secondary file-btn">Add a label photo<input type="file" class="sr-only" id="inlineLabel" accept="image/jpeg,image/png,image/webp"></label>
-        <p class="muted small">We'll check it together with the photo you already added.</p><p class="field-error" id="inlineErr" role="alert" hidden></p></div>` : ""}
-      <div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div></div>`;
+        <p class="muted small">We'll check it together with the photo you already added.</p><p class="field-error" id="inlineErr" role="alert" hidden></p></div>` : ""}</div>`;
   if (v === "CONFIRMED") { h += res.recalls.map((m) => recallCard(m, photo)).join(""); lastRecall = res.recalls[0]; }
   if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}
     <div class="ask"><p><strong>Buying, not holding it?</strong> Ask the seller for a photo of the label.</p>
@@ -202,6 +201,7 @@ function renderResult(res, hadLabel) {
       <p class="muted">Suggestions, not matches: none of these met the bar for a possible match. If your item is one of these products, check its label against the recall page.</p>
       ${strip(res.recalls, photo)}</div></div>`;
   }
+  h += `<div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div>`;
   h += `</div>`;
   show(h);
   const inl = $("#inlineLabel");
