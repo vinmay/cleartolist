@@ -1,0 +1,17 @@
+# systemd user unit for the ClearToList GPU worker: starts at boot (with lingering enabled) and restarts on crash.
+# Installed by scripts/install_worker_service.sh, which replaces @REPO@, @ENV_FILE@ and @PATH@.
+[Unit]
+Description=ClearToList GPU worker
+Wants=ollama.service
+After=ollama.service network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+WorkingDirectory=@REPO@
+ExecStart=@REPO@/scripts/run_worker.sh @ENV_FILE@
+Environment=PATH=@PATH@
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

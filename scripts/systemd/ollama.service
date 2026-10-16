@@ -1,0 +1,13 @@
+# systemd user unit for Ollama, which the ClearToList worker needs. Installed by scripts/install_worker_service.sh,
+# which replaces @OLLAMA_BIN@ and @OLLAMA_MODELS@. Skip it if Ollama already runs as its own service.
+[Unit]
+Description=Ollama (models for the ClearToList worker)
+
+[Service]
+ExecStart=@OLLAMA_BIN@ serve
+Environment=OLLAMA_MODELS=@OLLAMA_MODELS@
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

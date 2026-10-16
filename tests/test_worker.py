@@ -95,3 +95,26 @@ def test_batch_sends_one_result_per_photo_in_order(monkeypatch):
     out = w.run_batch({"b1": object(), "b0": object()})
     assert [i["verdict"] for i in out["items"]] == ["NO MATCH FOUND", "POSSIBLE MATCH"]
     assert out["items"][1]["notes"] == ["label_ask"]
+
+
+
+def test_heartbeat_pings_every_five_minutes_only_when_configured(monkeypatch):
+    import worker.worker as w
+
+    calls = []
+    monkeypatch.setattr(w.httpx, "get", lambda url, **kw: calls.append(url))
+    hb = w.Heartbeat("https://hc-ping.example/abc")
+    assert hb.beat(now=0) and calls == ["https://hc-ping.example/abc"]
+    assert not hb.beat(now=299) and len(calls) == 1
+    assert hb.beat(now=300) and len(calls) == 2
+    assert not w.Heartbeat(None).beat(now=0) and not w.Heartbeat("http://insecure.example").beat(now=0)
+
+
+def test_heartbeat_errors_never_stop_the_worker(monkeypatch):
+    import worker.worker as w
+
+    def boom(url, **kw):
+        raise w.httpx.ConnectError("down")
+
+    monkeypatch.setattr(w.httpx, "get", boom)
+    assert w.Heartbeat("https://hc-ping.example/abc").beat(now=0)

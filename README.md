@@ -88,6 +88,19 @@ flowchart LR
 scripts/run_worker.sh /path/to/worker.env   # a private file with CTL_SERVER_URL and CTL_WORKER_SECRET
 ```
 
+3. To keep the worker running, install it as a systemd user service that starts at boot and restarts after a crash. Pass the Ollama binary as well if Ollama isn't already a service:
+
+```bash
+scripts/install_worker_service.sh /path/to/worker.env [/path/to/ollama]
+loginctl enable-linger "$USER"   # once, so it runs without anyone logged in (may need sudo)
+systemctl --user status cleartolist-worker
+journalctl --user -u cleartolist-worker -f
+```
+
+4. Optional uptime monitoring: set `CTL_HEARTBEAT_URL` in the worker's env file to a check URL from an uptime monitor such as Healthchecks.io. The worker sends a GET to it every 5 minutes while it's healthy (it has just reached the hosted service), so the monitor alerts when the worker stops, hangs or loses its connection.
+
+Keep the worker machine on mains power with sleep disabled: on battery, a laptop GPU can throttle hard and checks slow from seconds to half a minute.
+
 Render's free tier sleeps after about 15 idle minutes, and **the first request after that can take up to a minute** while it wakes; the page says so while it waits. When no worker is connected, the page shows that scanning is temporarily unavailable and the lookup keeps working.
 
 ### Everything on your own computer

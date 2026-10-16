@@ -35,6 +35,7 @@ from verify.pipeline import label_followup, scan
 JOB_ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
 BATCH_KEYS = [f"b{i}" for i in range(10)]
 CODE = re.compile(r"^(model|upc):[A-Z0-9]{4,20}$")
+HEARTBEAT_S = 300  # with CTL_HEARTBEAT_URL set, ping it this often while the worker is healthy
 IDLE_POLL_S = 1.0  # how often an idle worker asks for a job (adds up to this much to each scan)
 MAX_BACKOFF_S = 60.0
 _CTRL = re.compile(r"[\x00-\x1f\x7f]")
@@ -137,11 +138,36 @@ class Server:
         return Image.open(io.BytesIO(sanitize_image(r.content))).convert("RGB")
 
 
+class Heartbeat:
+    """Optional uptime-monitor ping (for example Healthchecks.io): a GET to CTL_HEARTBEAT_URL every 5 minutes, sent
+    only after the worker has just talked to the server successfully. If the worker hangs, crashes or loses the
+    server, the pings stop and the monitor alerts. Errors reaching the monitor never affect scanning."""
+
+    def __init__(self, url: str | None, every: float = HEARTBEAT_S) -> None:
+        self.url = url if url and url.startswith("https://") else None
+        self.every, self.last = every, float("-inf")
+
+    def due(self, now: float) -> bool:
+        return self.url is not None and now - self.last >= self.every
+
+    def beat(self, now: float | None = None) -> bool:
+        now = time.monotonic() if now is None else now
+        if not self.due(now):
+            return False
+        self.last = now
+        try:
+            httpx.get(self.url, timeout=10, follow_redirects=False)
+        except httpx.HTTPError:
+            pass  # the monitor being unreachable is the monitor's problem, not a reason to stop scanning
+        return True
+
+
 def main() -> None:
     import json
 
     url, secret = config()
     srv = Server(url, secret)
+    heartbeat = Heartbeat(os.environ.get("CTL_HEARTBEAT_URL", "").strip() or None)
     backoff = IDLE_POLL_S
     # Load every model once before taking jobs, so the first user doesn't wait for a cold start.
     t = time.perf_counter()
@@ -150,6 +176,8 @@ def main() -> None:
     while True:
         try:
             r = srv.call("POST", "/worker/claim")
+            if r.status_code in (200, 204):
+                heartbeat.beat()  # healthy: the server answered a signed request
             if r.status_code == 204:
                 backoff = IDLE_POLL_S
                 time.sleep(IDLE_POLL_S)
