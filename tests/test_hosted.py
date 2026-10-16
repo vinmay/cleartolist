@@ -269,3 +269,14 @@ def test_secrets_pasted_with_whitespace_or_quotes_still_work(client, monkeypatch
     assert signed(client, "POST", "/worker/claim").status_code == 204
     monkeypatch.setenv("CTL_INVITE_CODES", f" '{INVITE}' ")
     assert submit(client).status_code == 202
+
+
+def test_auth_failure_reasons_are_specific_but_never_returned(client):
+    n = security.NonceStore()
+    assert security.check(None, "POST", "/x", b"", {}, n) == "secret not configured"
+    assert security.check("short", "POST", "/x", b"", {}, n).startswith("secret shorter")
+    h = {k.lower(): v for k, v in security.signed_headers("x" * 40, "POST", "/x").items()}
+    assert security.check(WORKER, "POST", "/x", b"", h, n).startswith("signature mismatch")
+    r = client.post("/worker/claim", headers=security.signed_headers("x" * 40, "POST", "/worker/claim"))
+    assert r.status_code == 401 and r.json() == {"error": "Unauthorized."}
+    assert len(security.fingerprint(WORKER)) == 6

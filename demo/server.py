@@ -14,6 +14,7 @@ Configuration is environment-only (see .env.example).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -34,6 +35,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from demo import security
 from demo.jobs import JobQueue, QueueFull, TooManyPending
 
+log = logging.getLogger("uvicorn.error")
 ROOT = Path(__file__).parent
 DB = Path(os.environ.get("CTL_DEMO_DB", "data/demo.db"))
 DB_URL = os.environ.get(
@@ -317,9 +319,16 @@ def job_status(request: Request, job_id: str) -> dict[str, Any]:
 
 async def require_worker(request: Request) -> bytes:
     body = await request.body()
-    if len(body) > 64_000 or not security.verify(
-            env_secret("CTL_WORKER_SECRET"), request.method, request.url.path, body,
-            {k.lower(): v for k, v in request.headers.items()}, NONCES):
+    secret = env_secret("CTL_WORKER_SECRET")
+    why = "body too large" if len(body) > 64_000 else security.check(
+        secret, request.method, request.url.path, body, {k.lower(): v for k, v in request.headers.items()}, NONCES)
+    if why != "ok":
+        # Private server log only (never sent back): the reason plus a fingerprint of the configured secret, at most
+        # once a minute, so the owner can tell a missing, short or mismatched secret from clock skew.
+        if time.time() - STATE.get("auth_logged", 0.0) > 60:
+            STATE["auth_logged"] = time.time()
+            log.warning("worker auth failed: %s (configured secret fingerprint %s, length %d)",
+                        why, security.fingerprint(secret), len(secret or ""))
         raise HTTPException(401, "Unauthorized.")
     return body
 

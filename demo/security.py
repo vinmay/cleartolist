@@ -112,21 +112,34 @@ class NonceStore:
             return True
 
 
-def verify(secret: str | None, method: str, path: str, body: bytes, headers: dict[str, str],
-           nonces: NonceStore, now: float | None = None) -> bool:
-    """Constant-time check of an HMAC-signed request. False on any missing, stale, replayed or wrong signature."""
-    if not secret or len(secret) < 32:
-        return False  # worker access is off unless a strong secret is configured
+def fingerprint(secret: str | None) -> str:
+    """Six hex characters identifying a secret, safe to log: compare it with the worker's to spot a mismatch."""
+    return hashlib.sha256(secret.encode()).hexdigest()[:6] if secret else "none"
+
+
+def check(secret: str | None, method: str, path: str, body: bytes, headers: dict[str, str],
+          nonces: NonceStore, now: float | None = None) -> str:
+    """Constant-time check of an HMAC-signed request. Returns "ok" or why it failed (for the server's own log)."""
+    if not secret:
+        return "secret not configured"
+    if len(secret) < 32:
+        return "secret shorter than 32 characters"  # worker access is off unless a strong secret is configured
     ts, nonce, sig = (headers.get("x-ctl-timestamp", ""), headers.get("x-ctl-nonce", ""),
                       headers.get("x-ctl-signature", ""))
     if not (ts.isdigit() and 16 <= len(nonce) <= 64 and len(sig) == 64):
-        return False
+        return "missing or malformed signature headers"
     now = time.time() if now is None else now
     if abs(now - int(ts)) > SIG_WINDOW_S:
-        return False
+        return "timestamp outside the window (clock skew?)"
     if not hmac.compare_digest(sign(secret, method, path, body, ts, nonce), sig):
-        return False
-    return nonces.use(nonce, now)
+        return "signature mismatch (different secret?)"
+    return "ok" if nonces.use(nonce, now) else "replayed nonce"
+
+
+def verify(secret: str | None, method: str, path: str, body: bytes, headers: dict[str, str],
+           nonces: NonceStore, now: float | None = None) -> bool:
+    """True only for a correctly signed, fresh, unreplayed request."""
+    return check(secret, method, path, body, headers, nonces, now) == "ok"
 
 
 def code_matches(supplied: str, allowed: list[str]) -> bool:
