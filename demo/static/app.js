@@ -358,5 +358,11 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   gallery();
-  api("/api/meta").then((m) => { recallCount = Number(m.recall_count) || 0; }).catch(() => {});
+  api("/api/meta").then((m) => {
+    recallCount = Number(m.recall_count) || 0;
+    if (m.invite_requests === false) {
+      $("#inviteBtn").disabled = true;
+      const ok = $("#inviteOk"); ok.textContent = "Invite requests open soon. Free scans and the recall lookup work now."; ok.hidden = false;
+    }
+  }).catch(() => {});
 });

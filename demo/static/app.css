@@ -12,7 +12,7 @@
   --ink: #1b2a41;
   --muted: #5b6676;
   --line: #d7dde4;
-  --red: #e5383b;
+  --red: #d62f33;  /* white text 4.9:1, AA at any size */
   --red-ink: #c92a2d;
   --amber: #f2b705;
   --grey: #9aa3ae;
@@ -280,3 +280,20 @@ footer.site p { margin: 0 0 6px; max-width: 70ch; }
 .form-ok { margin: 0; font-weight: 600; color: var(--ink); }
 @media (min-width: 640px) { .cat-grid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { .cat-grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+/* hero proof + short recall card (shared card format) */
+.proof { margin: 20px 0 0; display: grid; grid-template-columns: 132px 1fr; gap: 14px; align-items: start;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); padding: 12px; }
+.proof-shot { width: 132px; }
+.proof-shot img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: var(--r-thumb); }
+.proof .sticker { width: 74px; height: 74px; font-size: 13px; top: -10px; right: -12px; padding: 4px; font-stretch: 100%;
+  overflow-wrap: normal; word-break: keep-all; }
+.rcard { color: var(--ink); margin: 0; font-size: 15px; }
+.rcard p { margin: 0 0 4px; font-size: 15px; line-height: 1.4; }
+.rcard-kicker { color: var(--muted); font-size: 13px !important; }
+.rcard-title { font-size: 18px; line-height: 1.25; margin: 0 0 6px; font-stretch: 105%; }
+.hazard { display: inline-block; font-size: 13px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+  border: 1.5px solid var(--ink); margin-right: 6px; }
+.small { font-size: 14px; }
+.intro .lede { margin-top: 16px; }
+@media (min-width: 900px) { .proof { grid-template-columns: 170px 1fr; } .proof-shot { width: 170px; } }
