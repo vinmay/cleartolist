@@ -609,4 +609,5 @@ def test_site_title_and_preview_match_the_headline(client):
     assert "<title>ClearToList: Is it recalled? Check before you list or buy.</title>" in r.text
     assert 'property="og:title" content="ClearToList: Is it recalled? Check before you list or buy."' in r.text
     shared = client.get("/recall/101").text
-    assert "<title>Recalled: Acme Strollers</title>" in shared and "Is it recalled? Check before" not in shared.split("og:image")[0]
+    head = shared.split("og:image")[0]
+    assert "<title>Recalled: Acme Strollers</title>" in shared and "Is it recalled? Check before" not in head
