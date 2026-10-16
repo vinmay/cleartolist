@@ -422,6 +422,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!$("#scanForm")) return;  // pages without the scanner only need the gallery
   try { $("#invite").value = localStorage.getItem("ctl-invite") || ""; } catch (e) { /* storage unavailable */ }
   wireDrop("photo"); wireDrop("label");
+  // "Use the camera" opens the camera directly; the drop zones open the phone's normal chooser (library or camera).
+  document.querySelectorAll("input[data-for]").forEach((cam) => cam.addEventListener("change", () => {
+    if (!cam.files.length) return;
+    const dt = new DataTransfer(); dt.items.add(cam.files[0]);
+    const target = $("#" + cam.dataset.for); target.files = dt.files; showPreview(cam.dataset.for); cam.value = "";
+  }));
   $("#invite").addEventListener("input", clearError);
   $("#scanForm").addEventListener("submit", runScan);
   $("#inviteForm").addEventListener("submit", requestInvite);

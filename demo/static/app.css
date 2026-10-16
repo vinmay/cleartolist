@@ -360,3 +360,7 @@ input[type=text]:focus-visible, input[type=search]:focus-visible, input[type=ema
 .funnel li { margin: 4px 0; }
 .helpful { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px; }
 .helpful .secondary { min-height: 38px; padding: 6px 16px; }
+
+.camera { display: inline-block; margin-top: 8px; font-size: 15px; font-weight: 600; color: var(--blue); text-decoration: underline;
+  text-underline-offset: 2px; cursor: pointer; }
+.camera:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
