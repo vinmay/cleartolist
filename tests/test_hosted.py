@@ -687,3 +687,30 @@ def test_robots_and_sitemap(client):
 def test_public_daily_quota_defaults_to_200(monkeypatch):
     monkeypatch.delenv("CTL_PUBLIC_DAILY_SCANS", raising=False)
     assert server.DailyQuota().limit() == 200
+
+
+def test_heic_photos_are_converted_to_clean_jpeg():
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+    b = io.BytesIO()
+    exif = Image.Exif()
+    exif[0x010F] = "PhoneMaker"
+    Image.new("RGB", (120, 90), (10, 120, 200)).save(b, format="HEIF", exif=exif.tobytes())
+    data = b.getvalue()
+    assert data[4:12] == b"ftypheic" and security.sniff(data) == "HEIF"
+    out = security.sanitize_image(data)
+    assert out.startswith(b"\xff\xd8\xff") and b"PhoneMaker" not in out
+
+
+def test_heic_upload_round_trip(client):
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+    b = io.BytesIO()
+    Image.new("RGB", (120, 90), (10, 120, 200)).save(b, format="HEIF")
+    r = client.post("/api/jobs", files={"photo": ("IMG_0001.HEIC", b.getvalue(), "image/heic")},
+                    headers={"X-Forwarded-For": "4.3.2.1"})
+    assert r.status_code == 202
+    d = signed(client, "POST", "/worker/claim").json()
+    assert signed(client, "GET", f"/worker/jobs/{d['job']}/photo/item").content.startswith(b"\xff\xd8\xff")

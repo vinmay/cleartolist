@@ -23,7 +23,7 @@ jobs:
       - name: Tests
         run: >-
           uv run --no-project --with pytest --with httpx --with numpy --with pillow==12.3.0
-          --with fastapi==0.143.1 --with python-multipart==0.0.32 pytest -q
+          --with fastapi==0.143.1 --with python-multipart==0.0.32 --with pillow-heif==1.8.1 pytest -q
 
   secrets:
     runs-on: ubuntu-latest

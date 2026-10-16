@@ -64,7 +64,7 @@
             <div class="step-body">
               <label for="photo" class="step-title">Item photo</label>
               <label class="drop drop-main" id="dropPhoto" for="photo">
-                <input class="sr-only" type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" aria-describedby="photoErr">
+                <input class="sr-only" type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" aria-describedby="photoErr">
                 <img class="preview" id="photoPreview" alt="" hidden>
                 <span class="drop-text" id="photoText"><strong>Choose or take a photo</strong></span>
               </label>
@@ -90,7 +90,7 @@
               <div id="labelZone" hidden>
                 <label for="label" class="step-title">Label photo <span class="optional">(optional)</span></label>
                 <label class="drop drop-label" id="dropLabel" for="label">
-                <input class="sr-only" type="file" id="label" name="label" accept="image/jpeg,image/png,image/webp" aria-describedby="labelHint">
+                <input class="sr-only" type="file" id="label" name="label" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" aria-describedby="labelHint">
                 <img class="preview" id="labelPreview" alt="" hidden>
                 <span class="drop-text drop-example" id="labelText"><img class="example-label" src="/static/samples/example-label.jpg" alt="Example: a label with a barcode and model number"><span><strong>Add the label</strong><span id="labelHint">A close-up of the model number, barcode or date code, like this one.</span></span></span>
               </label>
@@ -103,7 +103,7 @@
 
       <div id="panelHaul" role="tabpanel" aria-labelledby="tabHaul" hidden>
         <label class="drop drop-batch" for="batchPhotos">
-          <input class="sr-only" type="file" id="batchPhotos" name="photos" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="batchHint batchErr">
+          <input class="sr-only" type="file" id="batchPhotos" name="photos" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple aria-describedby="batchHint batchErr">
           <span class="drop-text"><strong>Choose up to 10 photos</strong><span id="batchHint">Up to 10 photos, one item each. One report for all.</span></span>
         </label>
         <div class="thumbs-row" id="batchThumbs" aria-live="polite"></div>

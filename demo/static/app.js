@@ -192,7 +192,7 @@ function renderResult(res, hadLabel) {
       ${notes.map((n) => `<p>${esc(n)}</p>`).join("")}
       ${v === "CONFIRMED" && res.recalls[0] ? nextSteps(res.recalls[0]) : ""}
       <p class="muted">${esc(saw)}</p>
-      ${v === "POSSIBLE MATCH" ? `<div class="inline-label"><label class="secondary file-btn">Add a label photo<input type="file" class="sr-only" id="inlineLabel" accept="image/jpeg,image/png,image/webp"></label>
+      ${v === "POSSIBLE MATCH" ? `<div class="inline-label"><label class="secondary file-btn">Add a label photo<input type="file" class="sr-only" id="inlineLabel" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"></label>
         <p class="muted small">We'll check it together with the photo you already added.</p><p class="field-error" id="inlineErr" role="alert" hidden></p></div>` : ""}</div>`;
   if (v === "CONFIRMED") { h += res.recalls.map((m) => recallCard(m, photo)).join(""); lastRecall = res.recalls[0]; }
   if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}
@@ -235,20 +235,46 @@ function scanFailed(err) {
   else formError(err.message);
 }
 
+// --- photo preparation in the browser: decode, shrink to 2048 px on the longest side, re-encode as JPEG --------
+// Phone photos are often 5-15 MB; this makes uploads fast and keeps them well under the 8 MB limit. If the
+// browser can't decode a file (for example HEIC outside Safari), the original goes up and the server converts it.
+const MAX_BYTES = 8 * 1024 * 1024, MAX_SIDE = 2048;
+class PhotoError extends Error {}
+async function preparePhoto(file, what = "That photo") {
+  let bmp = null;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); } catch (e) { bmp = null; }
+  if (!bmp) {
+    if (file.size > MAX_BYTES) throw new PhotoError(`${what} is larger than 8 MB and your browser couldn't shrink it. Use a smaller photo, or a screenshot of it.`);
+    return file;  // let the server try (it reads HEIC/HEIF)
+  }
+  const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+  const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close();
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+  if (!blob) return file.size <= MAX_BYTES ? file : Promise.reject(new PhotoError(`${what} is too large. Use a smaller photo.`));
+  return new File([blob], (file.name || "photo").replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
 async function runScan(e) {
   e.preventDefault();
   clearError();
   const photo = $("#photo").files[0], label = $("#label").files[0], invite = $("#invite").value.trim();
   if (!photo) { const el = $("#photoErr"); el.textContent = "Add a photo of the item first, or try a sample above."; el.hidden = false; $("#photo").focus(); return; }
-  if (photo.size > 8 * 1024 * 1024 || (label && label.size > 8 * 1024 * 1024)) { formError("That photo is larger than 8 MB. Use a smaller photo or a screenshot of it."); return; }
   try { localStorage.setItem("ctl-invite", invite); } catch (err) { /* storage unavailable */ }
-  const fd = new FormData();
-  if (invite) fd.append("invite", invite);
-  fd.append("photo", photo);
-  if (label) fd.append("label", label);
-  lastItem = { file: photo };
   lastWasScreenshot = photo.type === "image/png" || /screen ?shot|screenshot|scr[_-]/i.test(photo.name || "");
   busy($("#scanBtn"), true);
+  let item, lab = null;
+  try {
+    item = await preparePhoto(photo, "The item photo");
+    if (label) lab = await preparePhoto(label, "The label photo");
+  } catch (err) { busy($("#scanBtn"), false); formError(err.message); return; }
+  const fd = new FormData();
+  if (invite) fd.append("invite", invite);
+  fd.append("photo", item);
+  if (lab) fd.append("label", lab);
+  lastItem = { file: item };
   show(loading(false), false);
   try {
     const { job } = await api("/api/jobs", { method: "POST", body: fd }, () => { $("#result").innerHTML = loading(true); });
@@ -293,12 +319,13 @@ async function recheckWithLabel(input) {
   const label = input.files[0], btn = input.closest(".file-btn"), err = $("#inlineErr");
   if (!label) return;
   err.hidden = true;
-  if (label.size > 8 * 1024 * 1024) { err.textContent = "That photo is larger than 8 MB. Use a smaller photo."; err.hidden = false; return; }
+  let lab;
+  try { lab = await preparePhoto(label, "The label photo"); } catch (x) { err.textContent = x.message; err.hidden = false; return; }
   const item = await itemFile();
   if (!item) { err.textContent = "Add the item photo again in the scanner above."; err.hidden = false; return; }
   const fd = new FormData(), invite = $("#invite").value.trim();
   if (invite) fd.append("invite", invite);
-  fd.append("photo", item); fd.append("label", label);
+  fd.append("photo", item); fd.append("label", lab);
   btn.classList.add("is-busy"); btn.firstChild.textContent = "Checking..."; input.disabled = true;
   try {
     const { job } = await api("/api/jobs", { method: "POST", body: fd });
@@ -414,12 +441,13 @@ async function runBatch(e) {
   const files = [...$("#batchPhotos").files], invite = $("#invite").value.trim();
   if (!files.length) { batchError("Choose at least one photo."); $("#batchPhotos").focus(); return; }
   if (files.length > MAX_BATCH) { batchError(`Choose up to ${MAX_BATCH} photos. You chose ${files.length}.`); return; }
-  const big = files.findIndex((f) => f.size > 8 * 1024 * 1024);
-  if (big >= 0) { batchError(`Photo ${big + 1} is larger than 8 MB. Use a smaller photo.`); return; }
+  busy($("#scanBtn"), true);
+  let ready;
+  try { ready = await Promise.all(files.map((f, i) => preparePhoto(f, `Photo ${i + 1}`))); }
+  catch (err) { busy($("#scanBtn"), false); batchError(err.message); return; }
   const fd = new FormData();
   if (invite) fd.append("invite", invite);
-  files.forEach((f) => fd.append("photos", f));
-  busy($("#scanBtn"), true);
+  ready.forEach((f) => fd.append("photos", f));
   const out = $("#result");
   const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 5 seconds a photo.</p>${woke ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
   show(wait(false), false);

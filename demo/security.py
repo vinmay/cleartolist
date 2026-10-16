@@ -24,6 +24,18 @@ Image.MAX_IMAGE_PIXELS = MAX_PIXELS
 
 # Allowed types, identified by their leading bytes, never by filename or client-supplied content type.
 _MAGIC = {"JPEG": (b"\xff\xd8\xff",), "PNG": (b"\x89PNG\r\n\x1a\n",)}
+# iPhone photos: an ISO base media file whose "ftyp" box names a HEIF/HEIC brand.
+_HEIF_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"}
+
+
+def _heif_ready() -> bool:
+    """HEIC/HEIF decoding is optional (pillow-heif); without it those files are refused with a clear message."""
+    try:
+        import pillow_heif
+    except ImportError:
+        return False
+    pillow_heif.register_heif_opener()
+    return True
 
 
 class UploadError(ValueError):
@@ -36,12 +48,15 @@ def sniff(data: bytes) -> str | None:
             return fmt
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "WEBP"
+    if len(data) >= 12 and data[4:8] == b"ftyp" and data[8:12] in _HEIF_BRANDS:
+        return "HEIF"
     return None
 
 
 def sanitize_image(data: bytes) -> bytes:
     """Validate an uploaded photo and return a clean re-encoded JPEG with no metadata (EXIF, GPS, ICC, comments).
 
+    HEIC/HEIF (iPhone) photos are converted too, when pillow-heif is installed.
     Rejects: oversized files, unknown types (by magic bytes), files whose decoded format disagrees with their magic
     bytes (polyglots), truncated or malformed images, and decompression bombs. Re-encoding also drops anything
     appended after the image data.
@@ -49,8 +64,8 @@ def sanitize_image(data: bytes) -> bytes:
     if len(data) > MAX_UPLOAD_BYTES:
         raise UploadError("Photo is too large (8 MB max).")
     fmt = sniff(data)
-    if fmt is None:
-        raise UploadError("Unsupported file type. Use a JPEG, PNG or WebP photo.")
+    if fmt is None or (fmt == "HEIF" and not _heif_ready()):
+        raise UploadError("Unsupported file type. Use a JPEG, PNG, WebP or HEIC photo.")
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
