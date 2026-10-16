@@ -20,7 +20,7 @@ It covers every in-scope CPSC consumer-product recall since 2015, and it's tuned
 
 <!-- DEMO_GIF -->
 
-**Try it: [cleartolist.onrender.com](https://cleartolist.onrender.com)**. Photo scans need an invite code while the service is small; the recall lookup by model number, UPC, brand or name is open to everyone.
+**Try it: [cleartolist.onrender.com](https://cleartolist.onrender.com)**. Try a sample photo, or scan your own: there are free photo scans for everyone each day, and an invite code skips the daily limit. The recall lookup by model number, UPC, brand or name is always open.
 
 | The scanner on a phone | Label matches a recall: CONFIRMED | Looks similar: POSSIBLE MATCH |
 |---|---|---|
@@ -75,17 +75,19 @@ flowchart LR
 
 - **Uploads:** one item (plus an optional label photo), or a batch of up to 10 item photos with one combined report. JPEG, PNG or WebP only, identified by their bytes, not the filename; 8 MB and about 30 megapixels max (decompression bombs are refused). Every photo is decoded and re-encoded, which drops all metadata, including GPS location, and anything appended to the file.
 - **Retention:** photos are held in memory and deleted as soon as their scan finishes; if the scanner is busy, they're deleted after eight minutes at most. Text results are kept for ten minutes so the page can show them. Only anonymous counts are kept; no photos, filenames or client addresses are logged.
-- **Abuse limits:** invite codes for photo scans; per-client rate limits on photos, lookups and polling; a queue capped at 20 photos in total and 10 per client, which turns new jobs away when full; and job timeouts. A batch counts once per photo against every one of these limits. A kill switch turns photo uploads off: an environment flag, plus a signed admin request (`scripts/killswitch.py`) that takes effect instantly without a redeploy.
+- **Abuse limits:** a public daily allowance of free photo scans (`CTL_PUBLIC_DAILY_SCANS`, default 50 photos a day across all visitors) and invite codes that skip it; three sample photos that run real scans without a code; per-client rate limits on photos, lookups, polling, invite requests and usage events; a queue capped at 20 photos in total and 10 per client, which turns new jobs away when full; and job timeouts. A batch counts once per photo against every one of these limits, and samples count against the queue and rate limits too. A kill switch turns photo uploads off: an environment flag, plus a signed admin request (`scripts/killswitch.py`) that takes effect instantly without a redeploy.
 - **Worker isolation:** the worker only makes outbound HTTPS requests to the service. Every request is HMAC-signed (timestamp, nonce and body hash, compared in constant time, replays refused). It downloads photo bytes only from the service's own job endpoint, never a URL from job data, and executes nothing derived from a job.
 - **Untrusted model output:** text Gemma reads off a label could try to inject instructions. Reads are schema-constrained JSON, verdicts come only from the rule, the worker sends back only ids, codes and fixed note codes, and the service re-checks any claimed code against its own data before showing CONFIRMED. Everything shown is escaped.
 - **Web:** HTTPS only (HSTS), a strict Content Security Policy with no inline scripts, no framing, `nosniff`, same-origin requests only, and generic error messages with no stack traces.
+- **Invite requests** store only an email address, the time and, if asked for, recall-alert categories, after an explicit consent tick; a honeypot field and a rate limit keep bots out. They live in a Render Postgres that accepts no outside connections; the owner exports them through a signed admin endpoint.
+- **Usage counts, not tracking:** daily totals of named events (visits, a `?ref=` channel tag from an allowlist, scans, verdicts by tier, lookups, invite requests, a few clicks and a "Was this helpful?" yes/no). No cookies, IP addresses, user agents, referrer headers or per-person data. A private stats page shows them behind the admin secret.
 - **Secrets** live only in environment variables and Render's secret settings (see `.env.example`); CI scans the whole git history for leaked secrets with gitleaks.
 
 ## Run it
 
 ### Hosted service
 
-1. Deploy `render.yaml` as a Render Blueprint. Set `CTL_INVITE_CODES`, `CTL_WORKER_SECRET` and `CTL_ADMIN_SECRET` in the Render dashboard, then set `CTL_UPLOADS_ENABLED=1` when you're ready.
+1. Deploy `render.yaml` as a Render Blueprint (it also creates the free Postgres for invite requests and usage counts, and passes its connection string as `DATABASE_URL`). Set `CTL_INVITE_CODES`, `CTL_WORKER_SECRET` and `CTL_ADMIN_SECRET` in the Render dashboard, optionally `CTL_PUBLIC_DAILY_SCANS`, then set `CTL_UPLOADS_ENABLED=1` when you're ready.
 2. On a machine with an NVIDIA GPU (6 GB is enough), do the local setup below, then start the worker with the same secret:
 
 ```bash
