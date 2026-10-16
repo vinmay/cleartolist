@@ -562,3 +562,12 @@ footer.site .fine a { color: var(--muted); }
 
 .notfound { min-height: 50vh; }
 .home-btn { display: inline-flex; align-items: center; text-decoration: none; margin-top: 8px; }
+
+.closest-toggle { display: block; border-top: 1px solid var(--line); padding-top: 14px; }
+.closest-toggle summary { cursor: pointer; color: var(--blue); font-weight: 600; width: fit-content; list-style: none; }
+.closest-toggle summary::-webkit-details-marker { display: none; }
+.closest-toggle summary::before { content: "+ "; }
+.closest-toggle[open] summary::before { content: "− "; }
+.closest-toggle .when-open, .closest-toggle[open] .when-closed { display: none; }
+.closest-toggle[open] .when-open { display: inline; }
+.closest-toggle .closest { margin-top: 12px; }

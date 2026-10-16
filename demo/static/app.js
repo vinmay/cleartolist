@@ -199,9 +199,10 @@ function renderResult(res, hadLabel) {
     <div class="ask"><p><strong>Buying, not holding it?</strong> Ask the seller for a photo of the label.</p>
     <button type="button" class="secondary" data-ask>Ask the seller for the label</button><span class="ask-msg" aria-live="polite"></span></div></div></div>`;
   if (v === "NO MATCH FOUND" && res.closest && res.recalls.length) {
-    h += `<div class="recall wide"><div class="closest"><h3>Closest recalls to check</h3>
+    h += `<details class="recall wide closest-toggle"><summary><span class="when-closed">Show closest recalls</span><span class="when-open">Hide closest recalls</span></summary>
+      <div class="closest">
       <p class="muted">Suggestions, not matches: none of these met the bar for a possible match. If your item is one of these products, check its label against the recall page.</p>
-      ${strip(res.recalls, photo)}</div></div>`;
+      ${strip(res.recalls, photo)}</div></details>`;
   }
   h += reportButtons();
   markChecked();
