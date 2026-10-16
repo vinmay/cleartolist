@@ -88,7 +88,7 @@ function busy(btn, on, text = "Checking...") {
 }
 function loading(wake) {
   return `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking for recalls...</strong></p>
-    <p class="muted">This usually takes 10 to 30 seconds.</p>
+    <p class="muted">This usually takes 4 to 10 seconds.</p>
     ${wake ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
 }
 function unavailable(msg) {
@@ -421,7 +421,7 @@ async function runBatch(e) {
   files.forEach((f) => fd.append("photos", f));
   busy($("#scanBtn"), true);
   const out = $("#result");
-  const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 10 seconds a photo.</p>${woke ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
+  const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 5 seconds a photo.</p>${woke ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
   show(wait(false), false);
   try {
     const { job } = await api("/api/batches", { method: "POST", body: fd }, () => { out.innerHTML = wait(true); });
