@@ -153,7 +153,7 @@ async function showSharedRecall() {
       <div class="shared-body">${r.image_urls[0] ? `<img src="${safeUrl(r.image_urls[0])}" alt="CPSC recall photo">` : ""}${rcard(r)}</div>
       <p class="muted small">Have one of these, or something like it? Check it with the scanner below.</p></div>`;
   } catch (e) {
-    box.innerHTML = `<div class="panel"><p>That recall link didn't work. Search for the recall below, or check an item with the scanner.</p></div>`;
+    box.innerHTML = `<div class="panel"><p>That recall link didn't work. Search for it on the Model number tab, or check an item with a photo.</p></div>`;
   }
   box.hidden = false;
 }
@@ -386,7 +386,7 @@ function renderBatch(files, items) {
   const names = (rs) => rs.map((m) => `${esc(m.heading || m.title)} (<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">notice</a>)`).join("; ");
   const line = (r) => {
     if (r.verdict === "CONFIRMED") return `<p>Matched ${esc(codeText(r.recalls[0].codes))}: ${names(r.recalls.slice(0, 1))}</p>`;
-    if (r.verdict === "POSSIBLE MATCH") return `<p>Looks like: ${names(r.recalls)}</p><p class="muted">Check its label on the One item tab.</p>`;
+    if (r.verdict === "POSSIBLE MATCH") return `<p>Looks like: ${names(r.recalls)}</p><p class="muted">Check its label on the Photo tab.</p>`;
     if (r.closest && r.recalls.length) return `<p class="muted">Closest recalls to check (suggestions, not matches): ${names(r.recalls)}</p>`;
     return `<p class="muted">No match in CPSC recalls. This does not mean the item is safe.</p>`;
   };
@@ -443,22 +443,29 @@ function closeLabelStep() {  // anything you open, you can close: this also drop
 }
 
 // --- tabs: one item or a whole haul ---------------------------------------------------------------------------
-const haulTab = () => $("#tabHaul").getAttribute("aria-selected") === "true";
+const TABS = [["#tabOne", "#panelOne", "Check for recalls"], ["#tabHaul", "#panelHaul", "Check all photos"],
+  ["#tabModel", "#panelModel", "Search recalls"]];
+const currentTab = () => TABS.find(([t]) => $(t).getAttribute("aria-selected") === "true")[0];
+const haulTab = () => currentTab() === "#tabHaul";
 function selectTab(tab) {
-  const haul = tab.id === "tabHaul";
-  [["#tabOne", "#panelOne", !haul], ["#tabHaul", "#panelHaul", haul]].forEach(([t, panel, on]) => {
+  const id = "#" + tab.id;
+  TABS.forEach(([t, panel, label]) => {
+    const on = t === id;
     $(t).setAttribute("aria-selected", String(on)); $(t).tabIndex = on ? 0 : -1; $(panel).hidden = !on;
+    if (on) $("#scanBtn").textContent = label;
   });
-  $("#scanBtn").textContent = haul ? "Check all photos" : "Check for recalls";
-  clearError(); batchError("");
+  const model = id === "#tabModel";
+  $("#inviteBox").hidden = model; $("#privacyLine").hidden = model; $("#policy").hidden = true;  // photo-only details
+  clearError(); batchError(""); $("#qErr").hidden = true;
 }
 function setupTabs() {
-  const tabs = [$("#tabOne"), $("#tabHaul")];
+  const tabs = TABS.map(([t]) => $(t));
   tabs.forEach((t, i) => {
     t.addEventListener("click", () => selectTab(t));
     t.addEventListener("keydown", (e) => {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-      const next = tabs[(i + 1) % 2]; selectTab(next); next.focus(); e.preventDefault();
+      const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      selectTab(next); next.focus(); e.preventDefault();
     });
   });
 }
@@ -484,19 +491,22 @@ async function requestInvite(e) {
 }
 
 // --- lookup --------------------------------------------------------------------------------------------------
-async function search(q) {
-  const out = $("#lookupOut");
-  q = q.trim();
-  if (q.length < 2) { out.innerHTML = `<p class="lookup-msg">Type at least two characters.</p>`; return; }
-  out.innerHTML = `<p class="lookup-msg">Searching...</p>`;
+async function search(q, btn) {
+  q = (q || "").trim();
+  if (q.length < 2) { const e = $("#qErr"); e.textContent = "Type a model number, UPC or brand (at least two characters)."; e.hidden = false; $("#q").focus(); return; }
+  $("#qErr").hidden = true;
+  busy(btn, true, "Searching...");
   try {
-    const d = await api(`/api/lookup?q=${encodeURIComponent(q)}&children=${$("#kids").checked}`, {},
-      () => { out.innerHTML = `<p class="lookup-msg">Just a moment, the site is starting up.</p>`; });
-    if (!d.results.length) { out.innerHTML = `<p class="lookup-msg">No recalls found for "${esc(q)}". That doesn't mean the item is safe. Try the brand alone, or untick children's products only.</p>`; return; }
-    out.innerHTML = d.results.map((x) => `<div class="row">
+    const d = await api(`/api/lookup?q=${encodeURIComponent(q)}`);
+    if (!d.results.length) {
+      show(`<div class="panel"><p class="lead">No recalls found for "${esc(q)}".</p><p class="muted">That doesn't mean the item is safe. Check the number on the label, try the brand alone, or take a photo instead.</p></div>`);
+      return;
+    }
+    show(`<div class="panel"><p class="summary">${d.results.length === 1 ? "1 recall" : `${d.results.length} recalls`} for "${esc(q)}"</p>
+      <div class="lookup-out">${d.results.map((x) => `<div class="row">
       ${x.image_urls[0] ? `<img src="${safeUrl(x.image_urls[0])}" alt="" loading="lazy">` : `<span class="noimg" aria-hidden="true"></span>`}
-      ${rcard(x, { compact: true })}</div>`).join("");
-  } catch (e) { out.innerHTML = `<p class="lookup-msg">${esc(e.message)}</p>`; }
+      ${rcard(x, { compact: true })}</div>`).join("")}</div></div>`);
+  } catch (e) { show(`<div class="panel"><p>${esc(e.message)}</p></div>`); } finally { busy(btn, false); }
 }
 
 // --- examples ------------------------------------------------------------------------------------------------
@@ -579,7 +589,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const target = $("#" + cam.dataset.for); target.files = dt.files; showPreview(cam.dataset.for); cam.value = "";
   }));
   $("#invite").addEventListener("input", clearError);
-  $("#scanForm").addEventListener("submit", (e) => (haulTab() ? runBatch(e) : runScan(e)));
+  $("#scanForm").addEventListener("submit", (e) => {
+    if (currentTab() === "#tabModel") { e.preventDefault(); return search($("#q").value, $("#scanBtn")); }
+    return haulTab() ? runBatch(e) : runScan(e);
+  });
   $("#inviteForm").addEventListener("submit", requestInvite);
   ["#email", "#consent", "#alerts"].forEach((id) => $(id).addEventListener("input", () => { $("#emailErr").hidden = true; }));
   $("#alerts").addEventListener("change", () => { $("#cats").hidden = !$("#alerts").checked; });
@@ -593,8 +606,7 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const box = $("#policy"); box.hidden = !box.hidden; $("#policyLink").setAttribute("aria-expanded", String(!box.hidden));
   });
-  $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
-  document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
+  document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q, b); }));
   api("/api/meta").then((m) => {
     if (m.invite_requests === false) {
       $("#inviteBtn").disabled = true;

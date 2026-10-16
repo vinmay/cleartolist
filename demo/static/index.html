@@ -28,7 +28,6 @@
 <a class="skip" href="#scanner">Skip to the scanner</a>
 <header class="site">
   <a class="brand" href="/" aria-label="ClearToList home"><span class="mark" aria-hidden="true"></span><span class="wordmark">ClearToList</span></a>
-  <a class="header-link" href="#lookup">Search by model number</a>
 </header>
 
 <main>
@@ -42,8 +41,9 @@
 
     <form id="scanForm" class="scanner" novalidate>
       <div class="tabs" role="tablist" aria-label="What to check">
-        <button type="button" role="tab" id="tabOne" aria-selected="true" aria-controls="panelOne">One item</button>
+        <button type="button" role="tab" id="tabOne" aria-selected="true" aria-controls="panelOne">Photo</button>
         <button type="button" role="tab" id="tabHaul" aria-selected="false" aria-controls="panelHaul" tabindex="-1">Whole haul</button>
+        <button type="button" role="tab" id="tabModel" aria-selected="false" aria-controls="panelModel" tabindex="-1">Model number</button>
       </div>
 
       <div id="panelOne" role="tabpanel" aria-labelledby="tabOne">
@@ -99,7 +99,21 @@
         <p class="field-error" id="batchErr" role="alert" hidden></p>
       </div>
 
-      <details class="invite">
+      <div id="panelModel" role="tabpanel" aria-labelledby="tabModel" hidden>
+        <label for="q" class="step-title">Model number, UPC or brand</label>
+        <input type="search" id="q" name="q" placeholder="For example: 2111187" minlength="2" maxlength="120" autocomplete="off" aria-describedby="qErr">
+        <p class="field-error" id="qErr" role="alert" hidden></p>
+        <p class="hint">Find it on the label, under the seat, on the frame or on the base. Product names work too:</p>
+        <div class="chips" aria-label="Example searches">
+          <button type="button" class="chip" data-q="inclined sleeper">Inclined sleeper</button>
+          <button type="button" class="chip" data-q="high chair">High chair</button>
+          <button type="button" class="chip" data-q="bassinet">Bassinet</button>
+          <button type="button" class="chip" data-q="space heater">Space heater</button>
+          <button type="button" class="chip" data-q="power bank">Power bank</button>
+        </div>
+      </div>
+
+      <details class="invite" id="inviteBox">
         <summary>Have an invite code?</summary>
         <label for="invite" class="sr-only">Invite code</label>
         <input type="text" id="invite" name="invite" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" placeholder="Invite code" aria-describedby="inviteHint inviteErr">
@@ -111,7 +125,7 @@
         <button type="submit" class="primary" id="scanBtn">Check for recalls</button>
       </div>
       <p class="form-error" id="formErr" role="alert" hidden></p>
-      <p class="privacy">Photos are deleted right after the check. No cookies, no tracking. <a href="#policy" id="policyLink" aria-expanded="false" aria-controls="policy">How we handle photos</a></p>
+      <p class="privacy" id="privacyLine">Photos are deleted right after the check. No cookies, no tracking. <a href="#policy" id="policyLink" aria-expanded="false" aria-controls="policy">How we handle photos</a></p>
       <div class="policy" id="policy" hidden>
         <ul class="plain">
           <li>We use your photos only to check them for recalls. Nothing else.</li>
@@ -146,26 +160,6 @@
     </div>
   </section>
 
-  <section class="lookup" id="lookup" aria-labelledby="lookupH">
-    <h2 id="lookupH">Look up a recall</h2>
-    <p class="section-lede">Search by model number, UPC, brand or product name.</p>
-    <form id="lookupForm" class="lookup-form" role="search">
-      <label for="q" class="sr-only">Search recalls</label>
-      <input type="search" id="q" name="q" placeholder="Model, UPC, brand or name" minlength="2" maxlength="120" required>
-      <button type="submit" class="secondary">Search</button>
-    </form>
-    <div class="chips" aria-label="Example searches">
-      <button type="button" class="chip" data-q="inclined sleeper">Inclined sleeper</button>
-      <button type="button" class="chip" data-q="high chair">High chair</button>
-      <button type="button" class="chip" data-q="bassinet">Bassinet</button>
-      <button type="button" class="chip" data-q="play yard mattress">Play yard mattress</button>
-      <button type="button" class="chip" data-q="space heater">Space heater</button>
-      <button type="button" class="chip" data-q="power bank">Power bank</button>
-      <button type="button" class="chip" data-q="dresser">Dresser</button>
-    </div>
-    <label class="check"><input type="checkbox" id="kids"> Children's products only</label>
-    <div id="lookupOut" class="lookup-out" aria-live="polite"></div>
-  </section>
 
   <section class="invite-req" id="invite-request" aria-labelledby="inviteReqH">
     <form id="inviteForm" class="invite-form" novalidate>
