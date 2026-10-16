@@ -32,74 +32,86 @@
 
 <main>
   <section class="shared" id="shared" aria-live="polite" hidden></section>
+
   <section class="hero" id="scanner" aria-labelledby="h1">
     <div class="intro">
       <h1 id="h1">Check your haul for recalls before you list it.</h1>
-      <p class="legal"><a href="https://www.cpsc.gov/Business--Manufacturing/Business-Education/ResaleThrift-Stores-Information-Center/Stop-Online-Sale-of-Recalled-Products">Selling a recalled product is illegal, even secondhand.</a></p>
-      <figure class="proof" aria-label="Example result">
-        <div class="shot proof-shot"><img src="/static/samples/recalled-item.jpg" alt="A flowered infant snowsuit" width="640" height="480"><span class="sticker s-CONFIRMED">Recalled</span></div>
-        <figcaption class="rcard">
-          <p class="rcard-kicker">Example result</p>
-          <h2 class="rcard-title">The Children's Place Infant Snowsuits</h2>
-          <p><span class="hazard">Choking</span> <span class="muted">Recalled December 18, 2018</span></p>
-          <p><strong>Affected models:</strong> 2111187, 2111188</p>
-          <p><strong>What to do:</strong> Stop using them and return them to any The Children's Place store for a full refund.</p>
-          <p class="small"><a href="https://www.cpsc.gov/Recalls/2019/The-Childrens-Place-Recalls-Infant-Snowsuits-Due-to-Choking-Hazard">Full CPSC notice</a></p>
-        </figcaption>
-      </figure>
-      <p class="buyer"><strong>Buying secondhand?</strong> <a href="#photo" id="buyerLink">Check a listing screenshot before you pay.</a></p>
-      <p class="lede">For secondhand products, children's first: cribs, bassinets, strollers, high chairs and toys, plus heaters, chargers, furniture, tools and everything else in U.S. CPSC recalls since 2015.</p>
+      <p class="tagline">Check secondhand items against U.S. recalls before you list or buy.</p>
+      <p class="subline"><a href="https://www.cpsc.gov/Business--Manufacturing/Business-Education/ResaleThrift-Stores-Information-Center/Stop-Online-Sale-of-Recalled-Products">Selling a recalled product is illegal, even secondhand.</a></p>
     </div>
 
     <form id="scanForm" class="scanner" novalidate>
-      <div class="samples">
-        <p class="samples-title">No photo handy? Try a sample:</p>
-        <div class="sample-row">
-          <button type="button" class="sample" data-sample="recalled" data-photo="/static/samples/recalled-item.jpg"><img src="/static/samples/recalled-item.jpg" alt=""><span>Snowsuit and its label</span></button>
-          <button type="button" class="sample" data-sample="check" data-photo="/static/samples/check-item.jpg"><img src="/static/samples/check-item.jpg" alt=""><span>Play yard</span></button>
-          <button type="button" class="sample" data-sample="nomatch" data-photo="/static/samples/nomatch-item.jpg"><img src="/static/samples/nomatch-item.jpg" alt=""><span>Toy car</span></button>
-        </div>
-        <p class="credit">Each one runs a real check. <a href="/static/samples/ATTRIBUTION.md">Photo credits</a></p>
+      <div class="tabs" role="tablist" aria-label="What to check">
+        <button type="button" role="tab" id="tabOne" aria-selected="true" aria-controls="panelOne">One item</button>
+        <button type="button" role="tab" id="tabHaul" aria-selected="false" aria-controls="panelHaul" tabindex="-1">Whole haul (up to 10)</button>
       </div>
-      <ol class="steps">
-        <li class="step">
-          <span class="step-n" aria-hidden="true">1</span>
-          <div class="step-body">
-            <label for="photo" class="step-title">Photo of the item</label>
-            <label class="drop drop-main" id="dropPhoto" for="photo">
-              <input class="sr-only" type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" aria-describedby="photoHint photoErr">
-              <img class="preview" id="photoPreview" alt="" hidden>
-              <span class="drop-text" id="photoText"><strong>Choose a photo or take one</strong><span id="photoHint">The whole item, in good light. JPEG, PNG or WebP up to 8 MB.</span></span>
-            </label>
-            <label class="camera" for="photoCam">Use the camera<input class="sr-only" type="file" id="photoCam" accept="image/*" capture="environment" data-for="photo"></label>
-            <p class="field-error" id="photoErr" role="alert" hidden></p>
-          </div>
-        </li>
-        <li class="step">
-          <span class="step-n" aria-hidden="true">2</span>
-          <div class="step-body">
-            <label for="label" class="step-title">Photo of its label <span class="optional">(optional, unlocks a confirmed result)</span></label>
-            <label class="drop drop-label" id="dropLabel" for="label">
-              <input class="sr-only" type="file" id="label" name="label" accept="image/jpeg,image/png,image/webp" aria-describedby="labelHint">
-              <img class="preview" id="labelPreview" alt="" hidden>
-              <span class="drop-text drop-example" id="labelText"><img class="example-label" src="/static/samples/example-label.jpg" alt="Example: a label with a barcode and model number"><span><strong>Add the label</strong><span id="labelHint">A close-up of the model number, barcode or date code, like this one.</span></span></span>
-            </label>
-            <label class="camera" for="labelCam">Use the camera<input class="sr-only" type="file" id="labelCam" accept="image/*" capture="environment" data-for="label"></label>
-          </div>
-        </li>
-      </ol>
 
-      <div class="invite">
-        <label for="invite">Invite code <span class="optional">(optional)</span></label>
-        <input type="text" id="invite" name="invite" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" aria-describedby="inviteHint inviteErr">
-        <p class="hint" id="inviteHint">Not needed for your first scans: there are free scans for everyone each day. A code skips the daily limit. Recall lookup is always open.</p>
-        <p class="field-error" id="inviteErr" hidden></p>
+      <div id="panelOne" role="tabpanel" aria-labelledby="tabOne">
+        <ol class="steps">
+          <li class="step">
+            <span class="step-n" aria-hidden="true">1</span>
+            <div class="step-body">
+              <label for="photo" class="step-title">Photo of the item or a listing screenshot</label>
+              <label class="drop drop-main" id="dropPhoto" for="photo">
+                <input class="sr-only" type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" aria-describedby="photoHint photoErr">
+                <img class="preview" id="photoPreview" alt="" hidden>
+                <span class="drop-text" id="photoText"><strong>Choose a photo or take one</strong><span id="photoHint">The whole item, in good light.</span></span>
+              </label>
+              <label class="camera" for="photoCam">Use the camera<input class="sr-only" type="file" id="photoCam" accept="image/*" capture="environment" data-for="photo"></label>
+              <p class="field-error" id="photoErr" role="alert" hidden></p>
+              <div class="samples">
+                <p class="samples-title">No photo handy? Try a sample</p>
+                <div class="sample-row">
+                  <button type="button" class="sample" data-sample="recalled" data-photo="/static/samples/recalled-item.jpg"><img src="/static/samples/recalled-item.jpg" alt=""><span>Snowsuit and its label</span></button>
+                  <button type="button" class="sample" data-sample="check" data-photo="/static/samples/check-item.jpg"><img src="/static/samples/check-item.jpg" alt=""><span>Play yard</span></button>
+                  <button type="button" class="sample" data-sample="nomatch" data-photo="/static/samples/nomatch-item.jpg"><img src="/static/samples/nomatch-item.jpg" alt=""><span>Toy car</span></button>
+                </div>
+              </div>
+            </div>
+          </li>
+          <li class="step">
+            <span class="step-n" aria-hidden="true">2</span>
+            <div class="step-body">
+              <label for="label" class="step-title">Photo of its label <span class="optional">(optional, unlocks a confirmed result)</span></label>
+              <label class="drop drop-label" id="dropLabel" for="label">
+                <input class="sr-only" type="file" id="label" name="label" accept="image/jpeg,image/png,image/webp" aria-describedby="labelHint">
+                <img class="preview" id="labelPreview" alt="" hidden>
+                <span class="drop-text drop-example" id="labelText"><img class="example-label" src="/static/samples/example-label.jpg" alt="Example: a label with a barcode and model number"><span><strong>Add the label</strong><span id="labelHint">A close-up of the model number, barcode or date code, like this one.</span></span></span>
+              </label>
+              <label class="camera" for="labelCam">Use the camera<input class="sr-only" type="file" id="labelCam" accept="image/*" capture="environment" data-for="label"></label>
+            </div>
+          </li>
+        </ol>
       </div>
+
+      <div id="panelHaul" role="tabpanel" aria-labelledby="tabHaul" hidden>
+        <label class="drop drop-batch" for="batchPhotos">
+          <input class="sr-only" type="file" id="batchPhotos" name="photos" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="batchHint batchErr">
+          <span class="drop-text"><strong>Choose up to 10 photos</strong><span id="batchHint">One item per photo. You get one report for all of them.</span></span>
+        </label>
+        <div class="thumbs-row" id="batchThumbs" aria-live="polite"></div>
+        <p class="field-error" id="batchErr" role="alert" hidden></p>
+        <p class="hint">Items that look like a recall need a label photo. Check those one at a time on the One item tab.</p>
+      </div>
+
+      <details class="invite">
+        <summary>Have an invite code?</summary>
+        <label for="invite" class="sr-only">Invite code</label>
+        <input type="text" id="invite" name="invite" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" placeholder="Invite code" aria-describedby="inviteHint inviteErr">
+        <p class="hint" id="inviteHint">Not needed for your first checks. A code skips the daily limit on free checks.</p>
+        <p class="field-error" id="inviteErr" hidden></p>
+      </details>
 
       <div class="submit-row">
         <button type="submit" class="primary" id="scanBtn">Check for recalls</button>
-        <p class="privacy">Your photos are deleted right after the check. No cookies, no tracking.</p>
+        <ul class="legend" aria-label="What the results mean">
+          <li><span class="dot d-CONFIRMED" aria-hidden="true"></span>Recalled</li>
+          <li><span class="dot d-POSSIBLE" aria-hidden="true"></span>Check the label</li>
+          <li><span class="dot d-NOMATCH" aria-hidden="true"></span>No match found</li>
+        </ul>
       </div>
+      <p class="form-error" id="formErr" role="alert" hidden></p>
+      <p class="privacy">Your photos are deleted right after the check. No cookies, no tracking.</p>
       <details class="policy">
         <summary>How we handle photos</summary>
         <ul class="plain">
@@ -110,7 +122,6 @@
           <li>No cookies and no tracking. We only count things like how many checks were done each day, without knowing who did them.</li>
         </ul>
       </details>
-      <p class="form-error" id="formErr" role="alert" hidden></p>
     </form>
   </section>
 
@@ -122,68 +133,18 @@
       <div>
         <h3>What it checks</h3>
         <p>Your photos are checked against the official U.S. list of product recalls from the Consumer Product Safety Commission (CPSC), going back to 2015 and kept up to date.</p>
-        <p>Car seats aren't included: they're recalled through NHTSA.</p>
+        <p>It covers secondhand products of every kind, with children's products first: cribs, bassinets, strollers, high chairs and toys, plus heaters, chargers, furniture, tools and more. Car seats aren't included: they're recalled through NHTSA.</p>
       </div>
       <div>
         <h3>How to get the best result</h3>
         <p>A photo of the label is the most reliable way to confirm a recall. A photo of the item alone can miss recalls.</p>
-        <p>Look for a sticker or tag with a model number, barcode or date code: under the seat, on the frame or on the base.</p>
+        <p>Look for a sticker or tag with a model number, barcode or date code: under the seat, on the frame or on the base. Buying online? A screenshot of the listing works, and you can ask the seller for a photo of the label.</p>
       </div>
       <div>
         <h3>What a result means</h3>
         <p>"Recalled" means the model number or barcode matches a recall. "Check the label" means it looks like a recalled product. No match isn't proof an item is safe.</p>
       </div>
     </div>
-  </section>
-
-  <section class="batch" aria-labelledby="batchH">
-    <h2 id="batchH">Check a whole haul</h2>
-    <p class="section-lede">Up to 10 item photos at once, one report. Uses the invite code above if you have one. Items that look like a recall need a label photo, which you can check one at a time in the scanner.</p>
-    <form id="batchForm" class="batch-form" novalidate>
-      <label class="drop drop-batch" for="batchPhotos">
-        <input class="sr-only" type="file" id="batchPhotos" name="photos" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="batchHint batchErr">
-        <span class="drop-text"><strong>Choose up to 10 photos</strong><span id="batchHint">One item per photo. JPEG, PNG or WebP up to 8 MB each.</span></span>
-      </label>
-      <div class="thumbs-row" id="batchThumbs" aria-live="polite"></div>
-      <p class="field-error" id="batchErr" role="alert" hidden></p>
-      <div class="submit-row"><button type="submit" class="primary" id="batchBtn">Check all photos</button></div>
-    </form>
-    <div id="batchOut" class="batch-out" aria-live="polite"></div>
-  </section>
-
-  <section class="invite-req" id="invite-request" aria-labelledby="inviteReqH">
-    <h2 id="inviteReqH">Get an invite code</h2>
-    <p class="section-lede">An invite code skips the daily limit on free scans. Leave your email and we'll send one.</p>
-    <form id="inviteForm" class="invite-form" novalidate>
-      <label for="email">Email address</label>
-      <input type="email" id="email" name="email" autocomplete="email" maxlength="254" required aria-describedby="emailErr">
-      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
-      <label class="check"><input type="checkbox" id="alerts"> Email me when new recalls hit categories I sell</label>
-      <fieldset class="cats" id="cats" hidden>
-        <legend>Categories I sell</legend>
-        <div class="cat-grid">
-          <label class="check"><input type="checkbox" name="cat" value="crib_bassinet_sleeper"> Cribs, bassinets and sleepers</label>
-          <label class="check"><input type="checkbox" name="cat" value="stroller"> Strollers</label>
-          <label class="check"><input type="checkbox" name="cat" value="high_chair"> High chairs</label>
-          <label class="check"><input type="checkbox" name="cat" value="play_yard"> Play yards</label>
-          <label class="check"><input type="checkbox" name="cat" value="toy"> Toys</label>
-          <label class="check"><input type="checkbox" name="cat" value="other_child"> Other baby and kids' gear</label>
-          <label class="check"><input type="checkbox" name="cat" value="furniture"> Furniture</label>
-          <label class="check"><input type="checkbox" name="cat" value="heating_cooling"> Heaters and fans</label>
-          <label class="check"><input type="checkbox" name="cat" value="kitchen"> Kitchen</label>
-          <label class="check"><input type="checkbox" name="cat" value="electrical_battery"> Chargers and batteries</label>
-          <label class="check"><input type="checkbox" name="cat" value="tools_outdoor"> Tools and outdoor</label>
-          <label class="check"><input type="checkbox" name="cat" value="sports_rec"> Sports and bikes</label>
-          <label class="check"><input type="checkbox" name="cat" value="home"> Home</label>
-          <label class="check"><input type="checkbox" name="cat" value="apparel"> Clothing</label>
-          <label class="check"><input type="checkbox" name="cat" value="appliance_fixture"> Appliances</label>
-        </div>
-      </fieldset>
-      <label class="check consent"><input type="checkbox" id="consent"> I agree that ClearToList can store my email address, the time I signed up and the categories I picked, to send me an invite code and, if I asked, recall alerts. Nothing else is stored, and you can ask for it to be deleted by replying to any email from us.</label>
-      <p class="field-error" id="emailErr" role="alert" hidden></p>
-      <div><button type="submit" class="primary" id="inviteBtn">Request an invite code</button></div>
-      <p class="form-ok" id="inviteOk" role="status" hidden></p>
-    </form>
   </section>
 
   <section class="lookup" aria-labelledby="lookupH">
@@ -207,10 +168,41 @@
     <div id="lookupOut" class="lookup-out" aria-live="polite"></div>
   </section>
 
-  <section class="examples" aria-labelledby="exH">
-    <h2 id="exH">Examples</h2>
-    <p class="section-lede">What each result looks like.</p>
-    <div id="gallery" class="gallery" data-set="curated"></div>
+  <section class="invite-req" id="invite-request" aria-labelledby="inviteReqH">
+    <form id="inviteForm" class="invite-form" novalidate>
+      <h2 id="inviteReqH">Get an invite code</h2>
+      <p class="section-lede">Skip the daily limit on free checks. We'll email you a code.</p>
+      <div class="invite-row">
+        <label for="email" class="sr-only">Email address</label>
+        <input type="email" id="email" name="email" autocomplete="email" maxlength="254" required placeholder="Email address" aria-describedby="emailErr">
+        <button type="submit" class="primary" id="inviteBtn">Request a code</button>
+      </div>
+      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
+      <label class="check"><input type="checkbox" id="alerts"> Also email me when new recalls hit categories I sell</label>
+      <fieldset class="cats" id="cats" hidden>
+        <legend>Categories I sell</legend>
+        <div class="cat-grid">
+          <label class="check"><input type="checkbox" name="cat" value="crib_bassinet_sleeper"> Cribs, bassinets and sleepers</label>
+          <label class="check"><input type="checkbox" name="cat" value="stroller"> Strollers</label>
+          <label class="check"><input type="checkbox" name="cat" value="high_chair"> High chairs</label>
+          <label class="check"><input type="checkbox" name="cat" value="play_yard"> Play yards</label>
+          <label class="check"><input type="checkbox" name="cat" value="toy"> Toys</label>
+          <label class="check"><input type="checkbox" name="cat" value="other_child"> Other baby and kids' gear</label>
+          <label class="check"><input type="checkbox" name="cat" value="furniture"> Furniture</label>
+          <label class="check"><input type="checkbox" name="cat" value="heating_cooling"> Heaters and fans</label>
+          <label class="check"><input type="checkbox" name="cat" value="kitchen"> Kitchen</label>
+          <label class="check"><input type="checkbox" name="cat" value="electrical_battery"> Chargers and batteries</label>
+          <label class="check"><input type="checkbox" name="cat" value="tools_outdoor"> Tools and outdoor</label>
+          <label class="check"><input type="checkbox" name="cat" value="sports_rec"> Sports and bikes</label>
+          <label class="check"><input type="checkbox" name="cat" value="home"> Home</label>
+          <label class="check"><input type="checkbox" name="cat" value="apparel"> Clothing</label>
+          <label class="check"><input type="checkbox" name="cat" value="appliance_fixture"> Appliances</label>
+        </div>
+      </fieldset>
+      <label class="check consent"><input type="checkbox" id="consent"> I agree that ClearToList can store my email address, the time I signed up and the categories I picked, to send me an invite code and, if I asked, recall alerts. You can ask for it to be deleted by replying to any email from us.</label>
+      <p class="field-error" id="emailErr" role="alert" hidden></p>
+      <p class="form-ok" id="inviteOk" role="status" hidden></p>
+    </form>
   </section>
 </main>
 
@@ -218,7 +210,7 @@
   <p>Recall data from the U.S. Consumer Product Safety Commission. Not affiliated with or endorsed by CPSC.</p>
   <p>Car seats are regulated by NHTSA and aren't covered here: check <a href="https://www.nhtsa.gov/recalls">nhtsa.gov/recalls</a>.</p>
   <p>Screening aid only, not legal advice.</p>
-  <p>Built by V. <a href="https://github.com/vinmay/cleartolist">Open source</a>.</p>
+  <p>Built by V. <a href="https://github.com/vinmay/cleartolist">Open source</a>. <a href="/static/samples/ATTRIBUTION.md">Sample photo credits</a>.</p>
 </footer>
 </body>
 </html>

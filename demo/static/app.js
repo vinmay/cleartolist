@@ -67,6 +67,7 @@ function formError(msg) {
   }
 }
 function inviteError(msg) {
+  $("details.invite").open = true;
   const e = $("#inviteErr"); e.textContent = msg; e.hidden = false;
   $("#invite").setAttribute("aria-invalid", "true"); $("#invite").focus();
 }
@@ -164,19 +165,23 @@ function strip(recalls, photo) {
 function renderResult(res, hadLabel) {
   const photo = urls.photo || "";
   const v = res.verdict;
-  const copy = {
-    "CONFIRMED": ["Recalled. Don't list or buy it.", "The model number or UPC on the item matches a CPSC recall."],
-    "POSSIBLE MATCH": ["Check the label.", hadLabel ? "Your item looks like these recalls, but the label didn't settle it. Compare the photos and check the recall pages." : "Your item looks like these recalls. That alone doesn't mean it's recalled."],
-    "NO MATCH FOUND": ["No match found.", res.closest ? "No match isn't proof. Check the model number with the manufacturer or CPSC before you buy or sell." : "No match in CPSC recalls. This does not mean the item is safe. Check cpsc.gov if unsure."],
+  // The sticker carries the verdict; the text says what it means and what to do, without repeating it.
+  const lead = {
+    "CONFIRMED": "The model number or barcode on this item matches a CPSC recall. Don't list or buy it.",
+    "POSSIBLE MATCH": hadLabel ? "It looks like these recalled products, but the label didn't settle it. Compare the photos and check the recall pages." : "It looks like these recalled products. That alone doesn't mean it's recalled: the label decides.",
+    "NO MATCH FOUND": res.closest ? "No match in CPSC recalls. No match isn't proof: check the model number with the manufacturer or CPSC before you buy or sell." : "No match in CPSC recalls. This doesn't mean the item is safe. Check cpsc.gov if unsure.",
   }[v];
   const notes = res.notes.map((n) => noteText(n, res)).filter(Boolean);
   const r = res.read || {};
-  const read = [r.category, r.brand, r.model_number, r.upc].filter(Boolean).join(", ");
+  const thing = [r.brand, r.category].filter(Boolean).join(" ");
+  const article = /^[aeiou]/i.test(thing) ? "an" : "a";
+  const code = r.model_number ? `, model ${r.model_number}` : (r.upc ? `, barcode ${r.upc}` : "");
+  const saw = thing ? `We saw: ${article} ${thing}${code}.` : "We couldn't tell what the item is from the photo.";
   let h = `<div class="panel verdict">
     <div class="shot"><img src="${photo}" alt="Your item photo">${sticker(v, false, true)}</div>
-    <div class="verdict-copy"><h2>${esc(copy[0])}</h2><p>${esc(copy[1])}</p>
+    <div class="verdict-copy"><p class="lead">${esc(lead)}</p>
       ${notes.map((n) => `<p>${esc(n)}</p>`).join("")}
-      <p class="muted">Read from your photo: ${esc(read || "nothing legible")}. Scan took ${esc(res.seconds)} seconds.</p>
+      <p class="muted">${esc(saw)}</p>
       ${v === "POSSIBLE MATCH" && !hadLabel ? `<p><button type="button" class="secondary" id="addLabel">Add a label photo</button></p>` : ""}
       <div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div></div>`;
   if (v === "CONFIRMED") h += res.recalls.map((m) => recallCard(m, photo)).join("");
@@ -238,11 +243,15 @@ async function runSample(btn) {
   if (urls.photo && urls.photo.startsWith("blob:")) URL.revokeObjectURL(urls.photo);
   urls.photo = btn.dataset.photo;
   document.querySelectorAll(".sample").forEach((b) => { b.disabled = true; });
+  btn.classList.add("is-loading"); btn.setAttribute("aria-busy", "true");
   show(loading(false));
   try {
     const { job } = await api(`/api/samples/${encodeURIComponent(btn.dataset.sample)}`, { method: "POST" }, () => { $("#result").innerHTML = loading(true); });
     await pollJob(job, btn.dataset.sample === "recalled");
-  } catch (err) { scanFailed(err); } finally { document.querySelectorAll(".sample").forEach((b) => { b.disabled = false; }); }
+  } catch (err) { scanFailed(err); } finally {
+    document.querySelectorAll(".sample").forEach((b) => { b.disabled = false; });
+    btn.classList.remove("is-loading"); btn.removeAttribute("aria-busy");
+  }
 }
 
 // --- batch ---------------------------------------------------------------------------------------------------
@@ -275,14 +284,14 @@ function renderBatch(files, items) {
   const names = (rs) => rs.map((m) => `${esc(m.heading || m.title)} (<a href="${safeUrl(m.url)}" target="_blank" rel="noopener">notice</a>)`).join("; ");
   const line = (r) => {
     if (r.verdict === "CONFIRMED") return `<p>Matched ${esc(codeText(r.recalls[0].codes))}: ${names(r.recalls.slice(0, 1))}</p>`;
-    if (r.verdict === "POSSIBLE MATCH") return `<p>Looks like: ${names(r.recalls)}</p><p class="muted">Check its label in the scanner above.</p>`;
+    if (r.verdict === "POSSIBLE MATCH") return `<p>Looks like: ${names(r.recalls)}</p><p class="muted">Check its label on the One item tab.</p>`;
     if (r.closest && r.recalls.length) return `<p class="muted">Closest recalls to check (suggestions, not matches): ${names(r.recalls)}</p>`;
     return `<p class="muted">No match in CPSC recalls. This does not mean the item is safe.</p>`;
   };
-  $("#batchOut").innerHTML = `<p class="summary">${pull} to pull, ${check} to check with a label photo, ${none} with no match found.</p>
+  show(`<div class="panel batch-report"><p class="summary">${pull} to pull, ${check} to check with a label photo, ${none} with no match found.</p>
     <div class="report">${items.map((r, i) => `<div class="item"><img src="${batchUrls[i] || ""}" alt="Photo ${i + 1}">
       <div><span class="tag t-${key(r.verdict)}">${esc(STICKER[r.verdict])}</span>${line(r)}</div></div>`).join("")}</div>
-    <p class="report-actions"><button type="button" class="secondary" id="csvBtn">Download the report (CSV)</button></p>`;
+    <p class="report-actions"><button type="button" class="secondary" id="csvBtn">Download the report (CSV)</button></p></div>`);
   $("#csvBtn").addEventListener("click", () => {
     const url = URL.createObjectURL(new Blob([batchCsv(files, items)], { type: "text/csv" }));
     const a = document.createElement("a"); a.href = url; a.download = "cleartolist-report.csv"; a.click();
@@ -300,28 +309,50 @@ async function runBatch(e) {
   const fd = new FormData();
   if (invite) fd.append("invite", invite);
   files.forEach((f) => fd.append("photos", f));
-  $("#batchBtn").disabled = true;
-  const out = $("#batchOut");
+  $("#scanBtn").disabled = true;
+  const out = $("#result");
   const wait = (woke) => `<div class="panel loading"><span class="pulse" aria-hidden="true"></span><div><p><strong>Checking ${files.length} photo${files.length > 1 ? "s" : ""}...</strong></p><p class="muted">About 10 seconds a photo.</p>${woke ? `<p class="wake">Just a moment, the site is starting up. This can take up to a minute.</p>` : ""}</div></div>`;
-  out.innerHTML = wait(false);
+  show(wait(false));
   try {
     const { job } = await api("/api/batches", { method: "POST", body: fd }, () => { out.innerHTML = wait(true); });
     const t0 = Date.now();
     while (Date.now() - t0 < 480000) {
       const s = await api(`/api/jobs/${encodeURIComponent(job)}`);
       if (s.state === "done") { renderBatch(files, s.result.items); return; }
-      if (s.state === "unavailable") { out.innerHTML = unavailable(); return; }
+      if (s.state === "unavailable") { show(unavailable()); return; }
       await sleep(3000);
     }
-    out.innerHTML = unavailable();
+    show(unavailable());
   } catch (err) {
     out.innerHTML = "";
-    if (err.status === 403 && /invite/i.test(err.message)) { batchError("That invite code isn't valid. Check it for typos, or ask for a new one."); }
-    else if (err.status === 503 && /unavailable/i.test(err.message)) out.innerHTML = unavailable();
+    out.hidden = true;
+    if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or leave it empty to use today's free checks.");
+    else if (err.status === 503 && /unavailable/i.test(err.message)) show(unavailable());
     else batchError(err.message);
   } finally {
-    $("#batchBtn").disabled = false;
+    $("#scanBtn").disabled = false;
   }
+}
+
+// --- tabs: one item or a whole haul ---------------------------------------------------------------------------
+const haulTab = () => $("#tabHaul").getAttribute("aria-selected") === "true";
+function selectTab(tab) {
+  const haul = tab.id === "tabHaul";
+  [["#tabOne", "#panelOne", !haul], ["#tabHaul", "#panelHaul", haul]].forEach(([t, panel, on]) => {
+    $(t).setAttribute("aria-selected", String(on)); $(t).tabIndex = on ? 0 : -1; $(panel).hidden = !on;
+  });
+  $("#scanBtn").textContent = haul ? "Check all photos" : "Check for recalls";
+  clearError(); batchError("");
+}
+function setupTabs() {
+  const tabs = [$("#tabOne"), $("#tabHaul")];
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => selectTab(t));
+    t.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const next = tabs[(i + 1) % 2]; selectTab(next); next.focus(); e.preventDefault();
+    });
+  });
 }
 
 // --- invite request ------------------------------------------------------------------------------------------
@@ -416,7 +447,6 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   if ($("#gallery")) gallery();
   if ($("#shared")) showSharedRecall();
-  if ($("#buyerLink")) $("#buyerLink").addEventListener("click", (e) => { e.preventDefault(); $("#photo").closest(".drop").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" }); $("#photo").focus(); });
   if (!$("#scanForm")) return;  // pages without the scanner only need the gallery
   try { $("#invite").value = localStorage.getItem("ctl-invite") || ""; } catch (e) { /* storage unavailable */ }
   wireDrop("photo"); wireDrop("label");
@@ -427,13 +457,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const target = $("#" + cam.dataset.for); target.files = dt.files; showPreview(cam.dataset.for); cam.value = "";
   }));
   $("#invite").addEventListener("input", clearError);
-  $("#scanForm").addEventListener("submit", runScan);
+  $("#scanForm").addEventListener("submit", (e) => (haulTab() ? runBatch(e) : runScan(e)));
   $("#inviteForm").addEventListener("submit", requestInvite);
   ["#email", "#consent", "#alerts"].forEach((id) => $(id).addEventListener("input", () => { $("#emailErr").hidden = true; }));
   $("#alerts").addEventListener("change", () => { $("#cats").hidden = !$("#alerts").checked; });
   document.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => runSample(b)));
   $("#batchPhotos").addEventListener("change", showBatchThumbs);
-  $("#batchForm").addEventListener("submit", runBatch);
+  setupTabs();
   $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
   document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { $("#q").value = b.dataset.q; search(b.dataset.q); }));
   api("/api/meta").then((m) => {
