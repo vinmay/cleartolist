@@ -57,8 +57,8 @@ h2 { font-size: clamp(24px, 4.5vw, 32px); line-height: 1.15; font-weight: 750; m
 /* layout */
 header.site, main, footer.site { max-width: 1120px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
 header.site { display: flex; align-items: center; justify-content: space-between; padding-top: 18px; padding-bottom: 18px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
-.mark { width: 24px; height: 24px; border-radius: 50%; background: var(--ink); }  /* red is reserved for Recalled */
+.brand { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); text-decoration: none; }
+.mark { width: 30px; height: 30px; display: block; flex: none; }  /* the peeling-sticker mark (static/brand/mark.svg) */
 .wordmark { font-size: 22px; font-weight: 800; }
 .gh { font-weight: 600; }
 
@@ -553,7 +553,7 @@ footer.site .fine a { color: var(--muted); }
   border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
 .minibar-in { max-width: 1120px; margin: 0 auto; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .minibar .wordmark { font-size: 18px; }
-.minibar .mark { width: 20px; height: 20px; }
+.minibar .mark { width: 26px; height: 26px; }
 .minibar-btn { min-height: 40px; padding: 8px 16px; font-size: 15px; }
 @media (prefers-reduced-motion: no-preference) { .minibar:not([hidden]) { animation: barin 180ms ease-out; } }
 @keyframes barin { from { transform: translateY(-100%); } to { transform: none; } }
@@ -571,3 +571,5 @@ footer.site .fine a { color: var(--muted); }
 .closest-toggle .when-open, .closest-toggle[open] .when-closed { display: none; }
 .closest-toggle[open] .when-open { display: inline; }
 .closest-toggle .closest { margin-top: 12px; }
+
+@media print { .print-report h1 { display: flex; align-items: center; gap: 8pt; } .print-report .print-mark { width: 22pt; height: 22pt; } }

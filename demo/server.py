@@ -845,6 +845,7 @@ async def admin_uploads(request: Request) -> dict[str, Any]:
 
 # Registered last so it never shadows a named route.
 _ROOT_FILES = {"favicon.ico": "image/x-icon", "favicon.svg": "image/svg+xml", "apple-touch-icon.png": "image/png",
+               "icon-192.png": "image/png", "icon-512.png": "image/png",
                "robots.txt": "text/plain; charset=utf-8", "sitemap.xml": "application/xml"}
 
 

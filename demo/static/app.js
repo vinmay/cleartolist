@@ -367,7 +367,7 @@ function downloadCsv() {
 }
 function printReport() {
   const when = report.checkedAt.toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" });
-  $("#printReport").innerHTML = `<h1>ClearToList report</h1><p>Checked ${esc(when)}. ${report.items.length} item${report.items.length > 1 ? "s" : ""}.</p>
+  $("#printReport").innerHTML = `<h1><img class="print-mark" src="/static/brand/mark.svg" alt="" width="28" height="28">ClearToList report</h1><p>Checked ${esc(when)}. ${report.items.length} item${report.items.length > 1 ? "s" : ""}.</p>
     <table><thead><tr><th>Photo</th><th>Result</th><th>Recall</th><th>Recall date</th></tr></thead><tbody>
     ${report.items.map((it) => {
       const { matched, looks, closest } = reportRow(it), m = matched[0];

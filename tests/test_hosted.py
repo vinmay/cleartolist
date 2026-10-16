@@ -655,7 +655,11 @@ def test_unavailable_and_kill_switch_give_the_same_answer(client, monkeypatch):
 def test_favicons_are_served_and_named_routes_still_work(client):
     assert client.get("/favicon.ico").headers["content-type"] == "image/x-icon"
     assert client.get("/favicon.svg").headers["content-type"].startswith("image/svg+xml")
-    assert client.get("/apple-touch-icon.png").content.startswith(b"\x89PNG")
+    for icon in ("/apple-touch-icon.png", "/icon-192.png", "/icon-512.png"):
+        assert client.get(icon).content.startswith(b"\x89PNG")
+    for page in ("/", "/privacy", "/terms", "/no-such-page"):
+        html = client.get(page).text
+        assert 'src="/static/brand/mark.svg"' in html and 'href="/icon-192.png"' in html
     assert client.get("/privacy").status_code == 200 and client.get("/healthz").status_code == 200
     assert 'rel="apple-touch-icon"' in client.get("/").text
 

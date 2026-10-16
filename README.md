@@ -1,4 +1,4 @@
-# ClearToList
+# <img src="demo/static/brand/mark.svg" alt="" width="32" height="32"> ClearToList
 
 **Check secondhand products against U.S. product recalls before you list them, children's products first.**
 
