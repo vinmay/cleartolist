@@ -35,7 +35,7 @@ from verify.pipeline import label_followup, scan
 JOB_ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
 BATCH_KEYS = [f"b{i}" for i in range(10)]
 CODE = re.compile(r"^(model|upc):[A-Z0-9]{4,20}$")
-IDLE_POLL_S = 3.0
+IDLE_POLL_S = 1.0  # how often an idle worker asks for a job (adds up to this much to each scan)
 MAX_BACKOFF_S = 60.0
 _CTRL = re.compile(r"[\x00-\x1f\x7f]")
 

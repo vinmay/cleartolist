@@ -222,7 +222,7 @@ async function pollJob(job, hadLabel) {
     if (s.state === "done") { renderResult(s.result, hadLabel); return; }
     if (s.state === "unavailable") { show(unavailable()); return; }
     if (!woke) $("#result").innerHTML = loading(false);
-    await sleep(2000);
+    await sleep(1000);
   }
   show(unavailable());
 }
@@ -429,7 +429,7 @@ async function runBatch(e) {
       const s = await api(`/api/jobs/${encodeURIComponent(job)}`);
       if (s.state === "done") { renderBatch(files, s.result.items); return; }
       if (s.state === "unavailable") { show(unavailable()); return; }
-      await sleep(3000);
+      await sleep(1500);
     }
     show(unavailable());
   } catch (err) {
