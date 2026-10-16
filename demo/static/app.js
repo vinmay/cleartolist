@@ -449,7 +449,9 @@ function setupMiniBar() {
   }, { threshold: 0 }).observe(scanner);
   $("#miniCheck").addEventListener("click", () => {
     $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-    setTimeout(() => { const tab = $("[role=tab][aria-selected=true]"); if (tab) tab.focus({ preventScroll: true }); }, reduceMotion ? 0 : 400);
+    const focusTab = () => { const tab = $("[role=tab][aria-selected=true]"); if (tab) tab.focus({ preventScroll: true }); };
+    if (reduceMotion || !("onscrollend" in window)) setTimeout(focusTab, reduceMotion ? 0 : 600);
+    else window.addEventListener("scrollend", focusTab, { once: true });
   });
 }
 
