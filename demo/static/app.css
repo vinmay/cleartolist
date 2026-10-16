@@ -464,3 +464,10 @@ details.invite summary::-webkit-details-marker { display: none; }
 .sample.is-loading::before { top: calc(50% - 22px); }
 .sample.is-loading { opacity: 1; }
 #result { scroll-margin-top: 12px; }
+
+.remove-label { margin-top: 8px; font-size: 14px; color: var(--muted); text-decoration: underline; }
+.inline-label { margin: 12px 0 4px; display: grid; gap: 6px; justify-items: start; }
+.file-btn { display: inline-flex; align-items: center; cursor: pointer; }
+.file-btn:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+.file-btn.is-busy { cursor: progress; opacity: 0.8; }
+.inline-label p { margin: 0; }

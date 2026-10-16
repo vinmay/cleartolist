@@ -189,7 +189,8 @@ function renderResult(res, hadLabel) {
     <div class="verdict-copy"><p class="lead">${esc(lead)}</p>
       ${notes.map((n) => `<p>${esc(n)}</p>`).join("")}
       <p class="muted">${esc(saw)}</p>
-      ${v === "POSSIBLE MATCH" && !hadLabel ? `<p><button type="button" class="secondary" id="addLabel">Add a label photo</button></p>` : ""}
+      ${v === "POSSIBLE MATCH" ? `<div class="inline-label"><label class="secondary file-btn">Add a label photo<input type="file" class="sr-only" id="inlineLabel" accept="image/jpeg,image/png,image/webp"></label>
+        <p class="muted small">We'll check it together with the photo you already added.</p><p class="field-error" id="inlineErr" role="alert" hidden></p></div>` : ""}
       <div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div></div>`;
   if (v === "CONFIRMED") h += res.recalls.map((m) => recallCard(m, photo)).join("");
   if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}
@@ -202,8 +203,8 @@ function renderResult(res, hadLabel) {
   }
   h += `</div>`;
   show(h);
-  const add = $("#addLabel");
-  if (add) add.addEventListener("click", () => { openLabelStep(); $("#label").click(); $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); });
+  const inl = $("#inlineLabel");
+  if (inl) inl.addEventListener("change", () => recheckWithLabel(inl));
 }
 
 async function pollJob(job, hadLabel) {
@@ -237,6 +238,7 @@ async function runScan(e) {
   if (invite) fd.append("invite", invite);
   fd.append("photo", photo);
   if (label) fd.append("label", label);
+  lastItem = { file: photo };
   busy($("#scanBtn"), true);
   show(loading(false), false);
   try {
@@ -245,10 +247,41 @@ async function runScan(e) {
   } catch (err) { scanFailed(err); } finally { busy($("#scanBtn"), false); }
 }
 
+// Inline label step on a Check the label result: the item photo already checked plus a new label photo.
+let lastItem = null;
+async function itemFile() {
+  if (lastItem && lastItem.file) return lastItem.file;
+  if (lastItem && lastItem.url) {
+    const blob = await (await fetch(lastItem.url)).blob();
+    return new File([blob], lastItem.name || "item.jpg", { type: blob.type || "image/jpeg" });
+  }
+  return null;
+}
+async function recheckWithLabel(input) {
+  const label = input.files[0], btn = input.closest(".file-btn"), err = $("#inlineErr");
+  if (!label) return;
+  err.hidden = true;
+  if (label.size > 8 * 1024 * 1024) { err.textContent = "That photo is larger than 8 MB. Use a smaller photo."; err.hidden = false; return; }
+  const item = await itemFile();
+  if (!item) { err.textContent = "Add the item photo again in the scanner above."; err.hidden = false; return; }
+  const fd = new FormData(), invite = $("#invite").value.trim();
+  if (invite) fd.append("invite", invite);
+  fd.append("photo", item); fd.append("label", label);
+  btn.classList.add("is-busy"); btn.firstChild.textContent = "Checking..."; input.disabled = true;
+  try {
+    const { job } = await api("/api/jobs", { method: "POST", body: fd });
+    await pollJob(job, true);
+  } catch (x) {
+    btn.classList.remove("is-busy"); btn.firstChild.textContent = "Add a label photo"; input.disabled = false;
+    err.textContent = x.message; err.hidden = false;
+  }
+}
+
 async function runSample(btn) {
   clearError();
   if (urls.photo && urls.photo.startsWith("blob:")) URL.revokeObjectURL(urls.photo);
   urls.photo = btn.dataset.photo;
+  lastItem = { url: btn.dataset.photo, name: btn.dataset.sample + ".jpg" };
   document.querySelectorAll(".sample").forEach((b) => { b.disabled = true; });
   btn.classList.add("is-loading"); btn.setAttribute("aria-busy", "true");
   show(loading(false), false);
@@ -344,6 +377,11 @@ async function runBatch(e) {
 // --- collapsed label step and photo policy ----------------------------------------------------------------
 function openLabelStep() {
   $("#labelZone").hidden = false; $("#addLabelStep").hidden = true; $("#addLabelStep").setAttribute("aria-expanded", "true");
+}
+function closeLabelStep() {  // anything you open, you can close: this also drops a chosen label photo
+  $("#label").value = ""; showPreview("label");
+  $("#labelZone").hidden = true; $("#addLabelStep").hidden = false; $("#addLabelStep").setAttribute("aria-expanded", "false");
+  $("#addLabelStep").focus();
 }
 
 // --- tabs: one item or a whole haul ---------------------------------------------------------------------------
@@ -476,6 +514,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => runSample(b)));
   $("#batchPhotos").addEventListener("change", showBatchThumbs);
   setupTabs();
+  $("#removeLabel").addEventListener("click", closeLabelStep);
   $("#addLabelStep").addEventListener("click", () => { openLabelStep(); $("#dropLabel").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" }); $("#label").focus(); });
   $("#policyLink").addEventListener("click", (e) => {
     e.preventDefault();
