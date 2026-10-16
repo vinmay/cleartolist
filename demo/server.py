@@ -296,6 +296,48 @@ def index() -> str:
     return (ROOT / "static" / "index.html").read_text()
 
 
+PUBLIC_URL = os.environ.get("CTL_PUBLIC_URL", "https://cleartolist.onrender.com").rstrip("/")
+
+
+def recall_by_id(recall_id: int) -> dict[str, Any] | None:
+    c = conn()
+    r = c.execute("SELECT * FROM recalls WHERE recall_id=?", (recall_id,)).fetchone()
+    return row(r, "shared link", c) if r is not None else None
+
+
+@app.get("/api/recall/{recall_id}")
+def api_recall(request: Request, recall_id: Annotated[int, Path(ge=1, le=10_000_000)]) -> dict[str, Any]:
+    if not LOOKUP_LIMIT.allow(client_of(request)):
+        raise HTTPException(429, "Too many requests. Please wait a minute.")
+    d = recall_by_id(recall_id)
+    if d is None:
+        raise HTTPException(404, "No recall with that number.")
+    return d
+
+
+@app.get("/recall/{recall_id}", response_class=HTMLResponse)
+def recall_page(recall_id: Annotated[int, Path(ge=1, le=10_000_000)]) -> HTMLResponse:
+    """A shareable link to one recall (its id only, never a photo). The page is the homepage with this recall shown
+    on top; the preview tags carry the recall's short name, escaped."""
+    import html
+
+    d = recall_by_id(recall_id)
+    page = (ROOT / "static" / "index.html").read_text()
+    if d is None:
+        return HTMLResponse(page, status_code=404)
+    title = html.escape(f"Recalled: {d['heading']}", quote=True)
+    desc = html.escape(f"{d['hazard_tag']} hazard. {d['what_to_do'] or 'See the CPSC notice.'} "
+                       "Check your own items with ClearToList.", quote=True)
+    url = f"{PUBLIC_URL}/recall/{recall_id}"
+    for old, new in [("<title>ClearToList: check your haul for recalls</title>", f"<title>{title}</title>"),
+                     ('content="ClearToList: check your haul for recalls"', f'content="{title}"'),
+                     ('content="Check secondhand products against U.S. CPSC recalls before you list them, children\'s '
+                      'products first. Free to try with a photo."', f'content="{desc}"'),
+                     (f'"{PUBLIC_URL}/"', f'"{url}"')]:
+        page = page.replace(old, new)
+    return HTMLResponse(page)
+
+
 @app.get("/api/lookup")
 def api_lookup(request: Request, q: str = Query(..., min_length=2, max_length=120),
                children: bool = False) -> dict[str, Any]:

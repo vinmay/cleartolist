@@ -112,8 +112,38 @@ function rcard(m, { compact = false, codes = [] } = {}) {
     <p><span class="hazard">${esc(m.hazard_tag || "Hazard")}</span>${m.date ? ` <span class="muted">Recalled ${esc(fmtDate(m.date))}</span>` : ""}</p>
     ${codes.length ? `<p><strong>Matched:</strong> ${esc(codeText(codes))}</p>` : ""}
     ${compact ? "" : `<p><strong>Affected models:</strong> ${esc(modelsText(m))}</p>${m.what_to_do ? `<p><strong>What to do:</strong> ${esc(m.what_to_do)}</p>` : ""}`}
-    <p class="small"><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">Full CPSC notice</a></p>
+    <p class="small"><a href="${safeUrl(m.url)}" target="_blank" rel="noopener">Full CPSC notice</a>${m.recall_id ? ` <button type="button" class="linkbtn" data-copy="${Number(m.recall_id)}">Copy link to this recall</button>` : ""}</p>
   </div>`;
+}
+
+// "Copy link to this recall": the link carries the recall id only, never a photo.
+async function copyRecallLink(btn) {
+  const url = `${location.origin}/recall/${Number(btn.dataset.copy)}`;
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {
+    const t = document.createElement("textarea"); t.value = url; t.setAttribute("readonly", ""); t.className = "sr-only";
+    document.body.append(t); t.select();
+    try { ok = document.execCommand("copy"); } catch (x) { ok = false; }
+    t.remove();
+  }
+  const label = btn.textContent;
+  btn.textContent = ok ? "Link copied" : url;
+  if (ok) setTimeout(() => { btn.textContent = label; }, 2000);
+}
+
+async function showSharedRecall() {
+  const m = /^\/recall\/(\d+)$/.exec(location.pathname);
+  if (!m) return;
+  const box = $("#shared");
+  try {
+    const r = await api(`/api/recall/${m[1]}`);
+    box.innerHTML = `<div class="panel shared-card"><p class="rcard-kicker">A recall someone shared with you</p>
+      <div class="shared-body">${r.image_urls[0] ? `<img src="${safeUrl(r.image_urls[0])}" alt="CPSC recall photo">` : ""}${rcard(r)}</div>
+      <p class="muted small">Have one of these, or something like it? Check it with the scanner below.</p></div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="panel"><p>That recall link didn't work. Search for the recall below, or check an item with the scanner.</p></div>`;
+  }
+  box.hidden = false;
 }
 
 function recallCard(m, photo) {
@@ -355,8 +385,14 @@ async function gallery() {
   } catch (e) { g.innerHTML = `<p class="muted">Example scans couldn't be loaded.</p>`; }
 }
 
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-copy]");
+  if (b) copyRecallLink(b);
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   if ($("#gallery")) gallery();
+  if ($("#shared")) showSharedRecall();
   if (!$("#scanForm")) return;  // pages without the scanner (how-we-measured) only need the gallery
   try { $("#invite").value = localStorage.getItem("ctl-invite") || ""; } catch (e) { /* storage unavailable */ }
   wireDrop("photo"); wireDrop("label");

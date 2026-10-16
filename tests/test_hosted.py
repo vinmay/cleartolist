@@ -495,3 +495,27 @@ def test_gallery_sets_and_measured_page(client):
     assert client.get("/api/gallery?set=bogus").status_code == 400
     r = client.get("/how-we-measured")
     assert r.status_code == 200 and 'data-set="sample"' in r.text
+
+
+# --- sharing ---------------------------------------------------------------------------------------------------
+
+def test_recall_link_page_and_api(client):
+    d = client.get("/api/recall/101").json()
+    assert d["recall_id"] == 101 and d["heading"] and d["hazard_tag"]
+    assert client.get("/api/recall/999").status_code == 404
+    assert client.get("/api/recall/abc").status_code == 400
+    r = client.get("/recall/101")
+    assert r.status_code == 200 and "Recalled: Acme Strollers" in r.text
+    assert 'property="og:image" content="https://cleartolist.onrender.com/static/og.png"' in r.text
+    assert "/recall/101" in r.text and client.get("/recall/999").status_code == 404
+
+
+def test_recall_page_escapes_recall_text(client, db):
+    import sqlite3
+
+    c = sqlite3.connect(db)
+    c.execute("INSERT INTO recalls VALUES (102,'x','2026-01-01','<script>alert(1)</script> Recalls Toys Due to Fire',"
+              "'d','https://www.cpsc.gov/x','[]','[]','[]','toy','x','[]')")
+    c.commit()
+    r = client.get("/recall/102")
+    assert "<script>alert(1)</script>" not in r.text and "&lt;script&gt;" in r.text
