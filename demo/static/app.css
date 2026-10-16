@@ -253,3 +253,14 @@ footer.site p { margin: 0 0 6px; max-width: 70ch; }
 .t-NOMATCH::before { background: var(--grey); }
 .report-actions { margin-top: 12px; }
 @media (min-width: 640px) { .thumbs-row { grid-template-columns: repeat(10, 1fr); } }
+
+/* samples */
+.samples { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 20px; }
+.samples-title { margin: 0 0 10px; font-weight: 700; }
+.sample-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sample { display: grid; gap: 6px; padding: 6px; background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--r-control); font-size: 14px; text-align: left; }
+.sample:hover { border-color: var(--blue); }
+.sample img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; }
+.sample span { padding: 0 2px 2px; line-height: 1.25; }
+.credit { margin: 10px 0 0; font-size: 13px; color: var(--muted); }

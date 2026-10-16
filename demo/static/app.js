@@ -141,40 +141,55 @@ function renderResult(res, hadLabel) {
   if (add) add.addEventListener("click", () => { $("#label").click(); $("#scanner").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); });
 }
 
+async function pollJob(job, hadLabel) {
+  let woke = false;
+  const t0 = Date.now();
+  while (Date.now() - t0 < 300000) {
+    const s = await api(`/api/jobs/${encodeURIComponent(job)}`, {}, () => { woke = true; $("#result").innerHTML = loading(true); });
+    if (s.state === "done") { renderResult(s.result, hadLabel); return; }
+    if (s.state === "unavailable") { show(unavailable()); return; }
+    if (!woke) $("#result").innerHTML = loading(false);
+    await sleep(2000);
+  }
+  show(unavailable());
+}
+
+function scanFailed(err) {
+  $("#result").hidden = true;
+  if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or leave it empty to use today's free scans.");
+  else if (err.status === 503 && /unavailable/i.test(err.message)) show(unavailable());
+  else formError(err.message);
+}
+
 async function runScan(e) {
   e.preventDefault();
   clearError();
   const photo = $("#photo").files[0], label = $("#label").files[0], invite = $("#invite").value.trim();
-  if (!photo) { const e = $("#photoErr"); e.textContent = "Add a photo of the item first."; e.hidden = false; $("#photo").focus(); return; }
+  if (!photo) { const el = $("#photoErr"); el.textContent = "Add a photo of the item first, or try a sample above."; el.hidden = false; $("#photo").focus(); return; }
   if (photo.size > 8 * 1024 * 1024 || (label && label.size > 8 * 1024 * 1024)) { formError("That photo is larger than 8 MB. Use a smaller photo or a screenshot of it."); return; }
-  if (!invite) { inviteError("Enter your invite code. Photo scans are invite-only during the beta."); return; }
   try { localStorage.setItem("ctl-invite", invite); } catch (err) { /* storage unavailable */ }
   const fd = new FormData();
-  fd.append("invite", invite); fd.append("photo", photo);
+  if (invite) fd.append("invite", invite);
+  fd.append("photo", photo);
   if (label) fd.append("label", label);
   $("#scanBtn").disabled = true;
-  let woke = false;
   show(loading(false));
-  const onSlow = () => { woke = true; $("#result").innerHTML = loading(true); };
   try {
-    const { job } = await api("/api/jobs", { method: "POST", body: fd }, onSlow);
-    const t0 = Date.now();
-    while (Date.now() - t0 < 180000) {
-      const s = await api(`/api/jobs/${encodeURIComponent(job)}`);
-      if (s.state === "done") { renderResult(s.result, Boolean(label)); return; }
-      if (s.state === "unavailable") { show(unavailable()); return; }
-      if (!woke) $("#result").innerHTML = loading(false);
-      await sleep(2000);
-    }
-    show(unavailable());
-  } catch (err) {
-    $("#result").hidden = true;
-    if (err.status === 403 && /invite/i.test(err.message)) inviteError("That invite code isn't valid. Check it for typos, or ask for a new one.");
-    else if (err.status === 503 && /unavailable/i.test(err.message)) show(unavailable());
-    else formError(err.message);
-  } finally {
-    $("#scanBtn").disabled = false;
-  }
+    const { job } = await api("/api/jobs", { method: "POST", body: fd }, () => { $("#result").innerHTML = loading(true); });
+    await pollJob(job, Boolean(label));
+  } catch (err) { scanFailed(err); } finally { $("#scanBtn").disabled = false; }
+}
+
+async function runSample(btn) {
+  clearError();
+  if (urls.photo && urls.photo.startsWith("blob:")) URL.revokeObjectURL(urls.photo);
+  urls.photo = btn.dataset.photo;
+  document.querySelectorAll(".sample").forEach((b) => { b.disabled = true; });
+  show(loading(false));
+  try {
+    const { job } = await api(`/api/samples/${encodeURIComponent(btn.dataset.sample)}`, { method: "POST" }, () => { $("#result").innerHTML = loading(true); });
+    await pollJob(job, btn.dataset.sample === "recalled");
+  } catch (err) { scanFailed(err); } finally { document.querySelectorAll(".sample").forEach((b) => { b.disabled = false; }); }
 }
 
 // --- batch ---------------------------------------------------------------------------------------------------
@@ -228,9 +243,8 @@ async function runBatch(e) {
   if (files.length > MAX_BATCH) { batchError(`Choose up to ${MAX_BATCH} photos. You chose ${files.length}.`); return; }
   const big = files.findIndex((f) => f.size > 8 * 1024 * 1024);
   if (big >= 0) { batchError(`Photo ${big + 1} is larger than 8 MB. Use a smaller photo.`); return; }
-  if (!invite) { batchError("Enter your invite code in the scanner above."); $("#invite").focus(); return; }
   const fd = new FormData();
-  fd.append("invite", invite);
+  if (invite) fd.append("invite", invite);
   files.forEach((f) => fd.append("photos", f));
   $("#batchBtn").disabled = true;
   const out = $("#batchOut");
@@ -309,6 +323,7 @@ document.addEventListener("DOMContentLoaded", () => {
   wireDrop("photo"); wireDrop("label");
   $("#invite").addEventListener("input", clearError);
   $("#scanForm").addEventListener("submit", runScan);
+  document.querySelectorAll(".sample").forEach((b) => b.addEventListener("click", () => runSample(b)));
   $("#batchPhotos").addEventListener("change", showBatchThumbs);
   $("#batchForm").addEventListener("submit", runBatch);
   $("#lookupForm").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });

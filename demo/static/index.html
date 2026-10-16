@@ -25,6 +25,15 @@
     </div>
 
     <form id="scanForm" class="scanner" novalidate>
+      <div class="samples">
+        <p class="samples-title">No photo handy? Try a sample:</p>
+        <div class="sample-row">
+          <button type="button" class="sample" data-sample="recalled" data-photo="/static/samples/recalled-item.jpg"><img src="/static/samples/recalled-item.jpg" alt=""><span>Snowsuit and its label</span></button>
+          <button type="button" class="sample" data-sample="check" data-photo="/static/samples/check-item.jpg"><img src="/static/samples/check-item.jpg" alt=""><span>Play yard</span></button>
+          <button type="button" class="sample" data-sample="nomatch" data-photo="/static/samples/nomatch-item.jpg"><img src="/static/samples/nomatch-item.jpg" alt=""><span>Toy car</span></button>
+        </div>
+        <p class="credit">Each runs a real scan. Photos: CPSC; Famartin, CC BY-SA 4.0; Jebulon, CC0. <a href="/static/samples/ATTRIBUTION.md">Credits</a></p>
+      </div>
       <ol class="steps">
         <li class="step">
           <span class="step-n" aria-hidden="true">1</span>
@@ -52,9 +61,9 @@
       </ol>
 
       <div class="invite">
-        <label for="invite">Invite code</label>
+        <label for="invite">Invite code <span class="optional">(optional)</span></label>
         <input type="text" id="invite" name="invite" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" aria-describedby="inviteHint inviteErr">
-        <p class="hint" id="inviteHint">Photo scans are invite-only during the beta. Recall lookup is open to everyone.</p>
+        <p class="hint" id="inviteHint">Not needed for your first scans: there are free scans for everyone each day. A code skips the daily limit. Recall lookup is always open.</p>
         <p class="field-error" id="inviteErr" hidden></p>
       </div>
 
@@ -74,7 +83,7 @@
 
   <section class="batch" aria-labelledby="batchH">
     <h2 id="batchH">Check a whole haul</h2>
-    <p class="section-lede">Up to 10 item photos at once, one report. Uses the invite code above. Items that look like a recall need a label photo, which you can check one at a time in the scanner.</p>
+    <p class="section-lede">Up to 10 item photos at once, one report. Uses the invite code above if you have one. Items that look like a recall need a label photo, which you can check one at a time in the scanner.</p>
     <form id="batchForm" class="batch-form" novalidate>
       <label class="drop drop-batch" for="batchPhotos">
         <input class="sr-only" type="file" id="batchPhotos" name="photos" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="batchHint batchErr">

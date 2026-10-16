@@ -39,7 +39,8 @@ from demo.jobs import MAX_BATCH, JobQueue, QueueFull, TooManyPending
 # Keep uploaded files in memory while the form is parsed (the default spills anything over 1 MB to a temp file);
 # the size guard below caps how much a request can send in the first place.
 MultiPartParser.spool_max_size = security.MAX_UPLOAD_BYTES + 1024 * 1024
-UPLOAD_LIMITS = {"/api/jobs": 2 * security.MAX_UPLOAD_BYTES + 1024 * 1024,
+UPLOAD_LIMITS = {"/api/jobs": 2 * security.MAX_UPLOAD_BYTES + 1024 * 1024, "/api/samples/recalled": 4096,
+                 "/api/samples/check": 4096, "/api/samples/nomatch": 4096,
                  "/api/batches": MAX_BATCH * security.MAX_UPLOAD_BYTES + 1024 * 1024}
 
 log = logging.getLogger("uvicorn.error")
@@ -80,7 +81,51 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 if GALLERY.exists():
     app.mount("/gallery", StaticFiles(directory=GALLERY), name="gallery")
 
+SAMPLES_DIR = ROOT / "static" / "samples"
+SAMPLES = {  # real scans of fixed photos (see static/samples/ATTRIBUTION.md), one per verdict
+    "recalled": {"item": "recalled-item.jpg", "label": "recalled-label.jpg"},
+    "check": {"item": "check-item.jpg"},
+    "nomatch": {"item": "nomatch-item.jpg"},
+}
+QUOTA_USED_UP = ("Today's free scans are used up. Recall lookup still works, and you can request an invite code "
+                 "below.")
+
+
+class DailyQuota:
+    """Photo scans anyone can run without an invite code, per UTC day, across all visitors.
+
+    Kept in memory: a restart resets the day's count, so the cap can only be exceeded, never undercounted, by
+    restarts (the per-client rate limits still apply)."""
+
+    def __init__(self) -> None:
+        self.day, self.used = "", 0
+
+    def limit(self) -> int:
+        v = os.environ.get("CTL_PUBLIC_DAILY_SCANS", "50").strip()
+        return int(v) if v.isdigit() else 50
+
+    def _roll(self) -> None:
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        if today != self.day:
+            self.day, self.used = today, 0
+
+    def left(self) -> int:
+        self._roll()
+        return max(0, self.limit() - self.used)
+
+    def take(self, n: int) -> bool:
+        self._roll()
+        if self.used + n > self.limit():
+            return False
+        self.used += n
+        return True
+
+    def refund(self, n: int) -> None:
+        self.used = max(0, self.used - n)
+
+
 QUEUE = JobQueue()
+QUOTA = DailyQuota()
 NONCES = security.NonceStore()
 STATE: dict[str, Any] = {"worker_seen": 0.0, "uploads_override": None}
 SCAN_LIMIT = security.RateLimiter(20, 600)  # photos per client per 10 min (a batch of 10 costs 10)
@@ -262,7 +307,8 @@ def api_meta() -> dict[str, Any]:
         meta: dict[str, Any] = dict(conn().execute("SELECT key, value FROM meta").fetchall())
     except sqlite3.Error as e:
         raise HTTPException(503, "Recall data is loading.") from e
-    meta["scanning"] = uploads_enabled() and bool(invite_codes())  # configured, not whether a worker is up
+    meta["scanning"] = uploads_enabled()  # configured, not whether a worker is up
+    meta["free_scans_today"] = QUOTA.left() > 0
     return meta
 
 
@@ -279,70 +325,97 @@ async def read_capped(f: UploadFile) -> bytes:
     return data
 
 
-@app.post("/api/jobs", status_code=202)
-async def create_job(request: Request, invite: Annotated[str, Form(max_length=64)],
-                     photo: Annotated[UploadFile, File()],
-                     label: Annotated[UploadFile | None, File()] = None) -> dict[str, Any]:
+def admit(request: Request, invite: str, cost: int, sample: bool = False) -> tuple[str, bool]:
+    """Checks every photo job goes through, before any photo is read. Returns (client key, uses the free quota).
+
+    Order: cross-site guard, kill switch, invite code (if one was given), per-client rate limit, worker available.
+    Without a code, the job draws on the public daily quota, which is taken last (see take_quota)."""
     if not same_origin(request):
         raise HTTPException(403, "Cross-site requests are not allowed.")
     if not uploads_enabled():
         QUEUE.count("rejected_disabled")
         raise HTTPException(503, UNAVAILABLE)
-    codes = invite_codes()
-    if not codes or not security.code_matches(invite, codes):
-        QUEUE.count("rejected_invite")
-        raise HTTPException(403, "That invite code isn't valid.")
+    public = False
+    if not sample:
+        invite = (invite or "").strip()
+        if invite:
+            codes = invite_codes()
+            if not codes or not security.code_matches(invite, codes):
+                QUEUE.count("rejected_invite")
+                raise HTTPException(403, "That invite code isn't valid.")
+        else:
+            public = True
+            if QUOTA.left() < cost:
+                QUEUE.count("rejected_quota")
+                raise HTTPException(429, QUOTA_USED_UP)
     client = client_of(request)
-    has_label = label is not None and bool(label.filename)
-    if not SCAN_LIMIT.allow(client, cost=1 + has_label):
-        QUEUE.count("rejected_rate")
-        raise HTTPException(429, "Too many scans from this connection. Please wait a few minutes.")
-    if not worker_alive():
-        QUEUE.count("rejected_unavailable")
-        raise HTTPException(503, UNAVAILABLE)
-    photos = {}
-    try:
-        photos["item"] = security.sanitize_image(await read_capped(photo))
-        if label is not None and label.filename:
-            photos["label"] = security.sanitize_image(await read_capped(label))
-    except security.UploadError as e:
-        QUEUE.count("rejected_upload")
-        raise HTTPException(400, str(e)) from e
-    try:
-        job = QUEUE.submit(client, photos)
-    except QueueFull as e:
-        raise HTTPException(503, "The scanner is busy right now. Please try again in a few minutes.") from e
-    except TooManyPending as e:
-        raise HTTPException(429, "You already have scans in progress. Wait for them to finish.") from e
-    return {"job": job.id, "state": job.state}
-
-
-@app.post("/api/batches", status_code=202)
-async def create_batch(request: Request, invite: Annotated[str, Form(max_length=64)],
-                       photos: Annotated[list[UploadFile], File()]) -> dict[str, Any]:
-    """Up to MAX_BATCH item photos in one job and one combined report. Same checks as a single scan; the batch
-    counts once per photo against the per-client and global queue limits and the rate limit."""
-    if not same_origin(request):
-        raise HTTPException(403, "Cross-site requests are not allowed.")
-    if not uploads_enabled():
-        QUEUE.count("rejected_disabled")
-        raise HTTPException(503, UNAVAILABLE)
-    codes = invite_codes()
-    if not codes or not security.code_matches(invite, codes):
-        QUEUE.count("rejected_invite")
-        raise HTTPException(403, "That invite code isn't valid.")
-    files = [f for f in photos if f.filename]
-    if not files:
-        raise HTTPException(400, "Choose at least one photo.")
-    if len(files) > MAX_BATCH:
-        raise HTTPException(400, f"A batch can have up to {MAX_BATCH} photos. Remove {len(files) - MAX_BATCH}.")
-    client = client_of(request)
-    if not SCAN_LIMIT.allow(client, cost=len(files)):
+    if not SCAN_LIMIT.allow(client, cost=cost):
         QUEUE.count("rejected_rate")
         raise HTTPException(429, "Too many photos from this connection. Please wait a few minutes.")
     if not worker_alive():
         QUEUE.count("rejected_unavailable")
         raise HTTPException(503, UNAVAILABLE)
+    return client, public
+
+
+def enqueue(client: str, photos: dict[str, bytes], public: bool, kind: str = "single") -> Any:
+    """Take the free quota (if used) only now that the photos are valid; give it back if the queue says no."""
+    if public and not QUOTA.take(len(photos)):
+        QUEUE.count("rejected_quota")
+        raise HTTPException(429, QUOTA_USED_UP)
+    try:
+        return QUEUE.submit(client, photos, kind=kind)
+    except (QueueFull, TooManyPending) as e:
+        if public:
+            QUOTA.refund(len(photos))
+        if isinstance(e, QueueFull):
+            raise HTTPException(503, "The scanner is busy right now. Please try again in a few minutes.") from e
+        raise HTTPException(429, "You already have scans in progress. Wait for them to finish.") from e
+
+
+@app.post("/api/jobs", status_code=202)
+async def create_job(request: Request, photo: Annotated[UploadFile, File()],
+                     label: Annotated[UploadFile | None, File()] = None,
+                     invite: Annotated[str, Form(max_length=64)] = "") -> dict[str, Any]:
+    has_label = label is not None and bool(label.filename)
+    client, public = admit(request, invite, 1 + has_label)
+    photos = {}
+    try:
+        photos["item"] = security.sanitize_image(await read_capped(photo))
+        if has_label:
+            photos["label"] = security.sanitize_image(await read_capped(label))
+    except security.UploadError as e:
+        QUEUE.count("rejected_upload")
+        raise HTTPException(400, str(e)) from e
+    job = enqueue(client, photos, public)
+    return {"job": job.id, "state": job.state}
+
+
+@app.post("/api/samples/{name}", status_code=202)
+async def create_sample(request: Request, name: str) -> dict[str, Any]:
+    """'Try it with a sample photo': a real scan of a fixed photo through the normal queue. No code or quota
+    needed, but the same kill switch, rate limit and queue caps apply."""
+    if name not in SAMPLES:
+        raise HTTPException(404, "No such sample.")
+    files = SAMPLES[name]
+    client, _ = admit(request, "", len(files), sample=True)
+    photos = {k: security.sanitize_image((SAMPLES_DIR / f).read_bytes()) for k, f in files.items()}
+    job = enqueue(client, photos, public=False)
+    QUEUE.count("sample")
+    return {"job": job.id, "state": job.state}
+
+
+@app.post("/api/batches", status_code=202)
+async def create_batch(request: Request, photos: Annotated[list[UploadFile], File()],
+                       invite: Annotated[str, Form(max_length=64)] = "") -> dict[str, Any]:
+    """Up to MAX_BATCH item photos in one job and one combined report. Same checks as a single scan; the batch
+    counts once per photo against the per-client and global queue limits, the rate limit and the free quota."""
+    files = [f for f in photos if f.filename]
+    if not files:
+        raise HTTPException(400, "Choose at least one photo.")
+    if len(files) > MAX_BATCH:
+        raise HTTPException(400, f"A batch can have up to {MAX_BATCH} photos. Remove {len(files) - MAX_BATCH}.")
+    client, public = admit(request, invite, len(files))
     clean = {}
     for i, f in enumerate(files):
         try:
@@ -350,12 +423,7 @@ async def create_batch(request: Request, invite: Annotated[str, Form(max_length=
         except security.UploadError as e:
             QUEUE.count("rejected_upload")
             raise HTTPException(400, f"Photo {i + 1}: {e}") from e
-    try:
-        job = QUEUE.submit(client, clean, kind="batch")
-    except QueueFull as e:
-        raise HTTPException(503, "The scanner is busy right now. Please try again in a few minutes.") from e
-    except TooManyPending as e:
-        raise HTTPException(429, "You already have scans in progress. Wait for them to finish.") from e
+    job = enqueue(client, clean, public, kind="batch")
     return {"job": job.id, "state": job.state, "photos": len(clean)}
 
 

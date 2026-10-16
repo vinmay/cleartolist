@@ -60,6 +60,7 @@ def client(db, monkeypatch):
     monkeypatch.setattr(server, "STATE", {"worker_seen": time.time(), "uploads_override": None})
     monkeypatch.setattr(server, "SCAN_LIMIT", security.RateLimiter(5, 600))
     monkeypatch.setattr(server, "LOOKUP_LIMIT", security.RateLimiter(30, 60))
+    monkeypatch.setattr(server, "QUOTA", server.DailyQuota())
     return TestClient(server.app)
 
 
@@ -351,3 +352,75 @@ def test_worker_photo_names_are_restricted(client):
     signed(client, "POST", "/worker/claim")
     assert signed(client, "GET", f"/worker/jobs/{job}/photo/b0").status_code == 200
     assert signed(client, "GET", f"/worker/jobs/{job}/photo/x9").status_code in (400, 401, 422)
+
+
+# --- public daily quota and sample scans -------------------------------------------------------------------------
+
+def test_scans_without_a_code_use_the_daily_quota(client, monkeypatch):
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "2")
+    monkeypatch.setattr(jobs, "MAX_PENDING_PER_CLIENT", 10)
+    assert submit(client, invite="").status_code == 202
+    assert submit(client, invite="", ip="2.2.2.2").status_code == 202
+    r = submit(client, invite="", ip="3.3.3.3")
+    assert r.status_code == 429 and "free scans are used up" in r.json()["error"]
+    assert client.get("/api/meta").json()["free_scans_today"] is False
+    assert submit(client, ip="3.3.3.3").status_code == 202  # a valid invite code skips the quota
+
+
+def test_a_wrong_code_is_refused_not_treated_as_no_code(client):
+    assert submit(client, invite="wrong-code").status_code == 403
+
+
+def test_quota_is_given_back_when_the_queue_is_full(client, monkeypatch):
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "5")
+    monkeypatch.setattr(jobs, "MAX_QUEUE", 0)
+    assert submit(client, invite="").status_code == 503
+    assert server.QUOTA.left() == 5
+
+
+def test_rejected_upload_does_not_use_the_quota(client, monkeypatch):
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "1")
+    r = client.post("/api/jobs", files={"photo": ("a.jpg", b"not an image", "image/jpeg")})
+    assert r.status_code == 400 and server.QUOTA.left() == 1
+
+
+def test_batch_without_a_code_counts_each_photo_against_the_quota(client, monkeypatch):
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "4")
+    files = [("photos", (f"p{i}.jpg", jpeg(), "image/jpeg")) for i in range(5)]
+    r = client.post("/api/batches", files=files, headers={"X-Forwarded-For": "9.9.9.9"})
+    assert r.status_code == 429 and server.QUOTA.left() == 4
+    assert client.post("/api/batches", files=files[:4], headers={"X-Forwarded-For": "9.9.9.9"}).status_code == 202
+    assert server.QUOTA.left() == 0
+
+
+def test_quota_resets_each_utc_day(monkeypatch):
+    q = server.DailyQuota()
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "1")
+    assert q.take(1) and not q.take(1)
+    q.day = "2000-01-01"
+    assert q.take(1)
+
+
+def test_sample_scans_need_no_code_and_run_a_real_job(client, monkeypatch):
+    monkeypatch.setenv("CTL_PUBLIC_DAILY_SCANS", "0")
+    r = client.post("/api/samples/recalled", headers={"X-Forwarded-For": "4.4.4.4"})
+    assert r.status_code == 202
+    d = signed(client, "POST", "/worker/claim").json()
+    assert d["photos"] == ["item", "label"] and d["kind"] == "single"
+    assert signed(client, "GET", f"/worker/jobs/{d['job']}/photo/label").content.startswith(b"\xff\xd8")
+    assert client.post("/api/samples/nope").status_code == 404
+
+
+def test_sample_scans_obey_kill_switch_rate_limit_queue_and_worker(client, monkeypatch):
+    monkeypatch.setenv("CTL_UPLOADS_ENABLED", "0")
+    assert client.post("/api/samples/check").status_code == 503
+    monkeypatch.setenv("CTL_UPLOADS_ENABLED", "1")
+    monkeypatch.setattr(server, "SCAN_LIMIT", security.RateLimiter(1, 600))
+    assert client.post("/api/samples/check").status_code == 202
+    assert client.post("/api/samples/check").status_code == 429
+    monkeypatch.setattr(server, "SCAN_LIMIT", security.RateLimiter(100, 600))
+    monkeypatch.setattr(jobs, "MAX_QUEUE", 1)
+    assert client.post("/api/samples/nomatch", headers={"X-Forwarded-For": "6.6.6.6"}).status_code == 503
+    server.STATE["worker_seen"] = 0.0
+    assert client.post("/api/samples/nomatch", headers={"X-Forwarded-For": "6.6.6.7"}).status_code == 503
+    assert client.post("/api/samples/check", headers={"Origin": "https://evil.example"}).status_code == 403
