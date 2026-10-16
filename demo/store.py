@@ -24,6 +24,16 @@ ALERT_CATEGORIES: dict[str, str] = {
     "appliance_fixture": "Appliances",
 }
 
+# Anonymous daily totals: (UTC day, metric name from a fixed list, count). Nothing per person or per visit.
+_COUNTS_DDL = """CREATE TABLE IF NOT EXISTS daily_counts (
+    day TEXT NOT NULL,
+    metric TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, metric)
+)"""
+_ADD_COUNT = ("INSERT INTO daily_counts (day, metric, count) VALUES ({p}, {p}, {p}) "
+              "ON CONFLICT (day, metric) DO UPDATE SET count = daily_counts.count + excluded.count")
+
 _DDL = """CREATE TABLE IF NOT EXISTS invite_requests (
     email TEXT PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -62,6 +72,7 @@ class Store:
             try:
                 if not self._ready:
                     conn.execute(_DDL)
+                    conn.execute(_COUNTS_DDL)
                     self._ready = True
                 cur = conn.execute(sql.format(p=p), args)
                 rows = cur.fetchall() if fetch else []
@@ -74,6 +85,14 @@ class Store:
     def add(self, email: str, alerts: bool, categories: list[str]) -> None:
         created = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         self._run(_UPSERT, (email.strip().lower(), created, alerts, ",".join(categories)))
+
+    def add_counts(self, rows: list[tuple[str, str, int]]) -> None:
+        for day, metric, n in rows:
+            self._run(_ADD_COUNT, (day, metric, n))
+
+    def counts(self, since_day: str) -> list[tuple]:
+        return self._run("SELECT day, metric, count FROM daily_counts WHERE day >= {p} ORDER BY day, metric",
+                         (since_day,), fetch=True)
 
     def all(self) -> list[tuple]:
         return self._run("SELECT email, created_at, alerts, categories FROM invite_requests ORDER BY created_at",

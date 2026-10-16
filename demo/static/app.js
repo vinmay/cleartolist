@@ -116,6 +116,11 @@ function rcard(m, { compact = false, codes = [] } = {}) {
   </div>`;
 }
 
+// Anonymous usage events: a click becomes a daily total on the server. Nothing identifies who clicked.
+function track(body) {
+  fetch("/api/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+}
+
 // "Copy link to this recall": the link carries the recall id only, never a photo.
 async function copyRecallLink(btn) {
   const url = `${location.origin}/recall/${Number(btn.dataset.copy)}`;
@@ -127,6 +132,7 @@ async function copyRecallLink(btn) {
     t.remove();
   }
   const label = btn.textContent;
+  track({ event: "copy_link" });
   btn.textContent = ok ? "Link copied" : url;
   if (ok) setTimeout(() => { btn.textContent = label; }, 2000);
 }
@@ -161,7 +167,7 @@ function renderResult(res, hadLabel) {
   const photo = urls.photo || "";
   const v = res.verdict;
   const copy = {
-    "CONFIRMED": ["Recalled. Don't list it.", "The model number or UPC on your item matches a CPSC recall."],
+    "CONFIRMED": ["Recalled. Don't list or buy it.", "The model number or UPC on the item matches a CPSC recall."],
     "POSSIBLE MATCH": ["Check the label.", hadLabel ? "Your item looks like these recalls, but the label didn't settle it. Compare the photos and check the recall pages." : "Your item looks like these recalls. That alone doesn't mean it's recalled."],
     "NO MATCH FOUND": ["No match found.", res.closest ? "No match isn't proof. Check the model number with the manufacturer or CPSC before you buy or sell." : "No match in CPSC recalls. This does not mean the item is safe. Check cpsc.gov if unsure."],
   }[v];
@@ -173,7 +179,8 @@ function renderResult(res, hadLabel) {
     <div class="verdict-copy"><h2>${esc(copy[0])}</h2><p>${esc(copy[1])}</p>
       ${notes.map((n) => `<p>${esc(n)}</p>`).join("")}
       <p class="muted">Read from your photo: ${esc(read || "nothing legible")}. Scan took ${esc(res.seconds)} seconds.</p>
-      ${v === "POSSIBLE MATCH" && !hadLabel ? `<p><button type="button" class="secondary" id="addLabel">Add a label photo</button></p>` : ""}</div>`;
+      ${v === "POSSIBLE MATCH" && !hadLabel ? `<p><button type="button" class="secondary" id="addLabel">Add a label photo</button></p>` : ""}
+      <div class="helpful" data-tier="${esc(v)}"><span>Was this helpful?</span><button type="button" class="secondary" data-helpful="yes">Yes</button><button type="button" class="secondary" data-helpful="no">No</button></div></div>`;
   if (v === "CONFIRMED") h += res.recalls.map((m) => recallCard(m, photo)).join("");
   if (v === "POSSIBLE MATCH") h += `<div class="recall wide"><div><h3>Compare these and add a label photo to confirm.</h3>${strip(res.recalls, photo)}
     <div class="ask"><p><strong>Buying, not holding it?</strong> Ask the seller for a photo of the label.</p>
@@ -394,9 +401,16 @@ async function copyText(text) {
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-copy]");
   if (b) copyRecallLink(b);
+  const h = e.target.closest("[data-helpful]");
+  if (h) {
+    const box = h.closest(".helpful");
+    track({ event: "helpful", answer: h.dataset.helpful, tier: box.dataset.tier });
+    box.innerHTML = "<span>Thanks for the feedback.</span>";
+  }
   const a = e.target.closest("[data-ask]");
   if (a) {
     const ok = await copyText(ASK_SELLER);
+    track({ event: "ask_seller" });
     a.nextElementSibling.textContent = ok ? ` Copied: "${ASK_SELLER}"` : ` Copy this: "${ASK_SELLER}"`;
   }
 });

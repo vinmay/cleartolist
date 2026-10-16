@@ -64,6 +64,9 @@ def client(db, monkeypatch):
     from demo.store import Store
 
     monkeypatch.setattr(server, "STORE", Store("sqlite://memory"))
+    monkeypatch.setattr(server, "COUNTS", server.analytics.Counts(server.STORE))
+    monkeypatch.setattr(server, "EVENT_LIMIT", security.RateLimiter(60, 60))
+    monkeypatch.setattr(server, "STATS_LIMIT", security.RateLimiter(10, 600))
     monkeypatch.setattr(server, "SIGNUP_LIMIT", security.RateLimiter(5, 3600))
     return TestClient(server.app)
 
@@ -518,3 +521,84 @@ def test_recall_page_escapes_recall_text(client, db):
     c.commit()
     r = client.get("/recall/102")
     assert "<script>alert(1)</script>" not in r.text and "&lt;script&gt;" in r.text
+
+
+# --- anonymous usage counts -----------------------------------------------------------------------------------------
+
+def totals():
+    server.COUNTS.flush()
+    out = {}
+    for _, m, n in server.STORE.counts("2000-01-01"):
+        out[m] = out.get(m, 0) + n
+    return out
+
+
+def basic(password, user="admin"):
+    import base64
+
+    return {"Authorization": "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode()}
+
+
+def test_page_views_and_ref_allowlist(client):
+    client.get("/")
+    client.get("/?ref=reddit")
+    client.get("/?ref=DEV")
+    client.get("/?ref=https://evil.example/track?id=123")
+    client.get("/", headers={"Referer": "https://news.example/some/article"})
+    t = totals()
+    assert t["page_view"] == 5 and t["ref_direct"] == 2 and t["ref_reddit"] == 1 and t["ref_dev"] == 1
+    assert t["ref_other"] == 1
+    assert all(m in server.analytics.METRICS for m in t)
+
+
+def test_scan_lookup_signup_and_verdict_counts(client):
+    client.get("/api/lookup?q=stroller")
+    client.post("/api/samples/check")
+    job = submit(client, ip="5.5.5.6").json()["job"]
+    signed(client, "POST", "/worker/claim")
+    signed(client, "POST", "/worker/claim")
+    signed(client, "POST", f"/worker/jobs/{job}/result", json.dumps({"verdict": "NO MATCH FOUND"}).encode())
+    ask(client, alerts=True, categories=["toy"])
+    t = totals()
+    assert t["lookup"] == 1 and t["sample_scan"] == 1 and t["real_scan"] == 1
+    assert t["verdict_no_match"] == 1 and t["invite_request"] == 1 and t["alert_signup"] == 1
+
+
+def test_events_accept_only_known_values(client):
+    ok = {"Content-Type": "application/json"}
+    assert client.post("/api/events", json={"event": "copy_link"}, headers=ok).status_code == 204
+    assert client.post("/api/events", json={"event": "ask_seller"}).status_code == 204
+    body = {"event": "helpful", "answer": "yes", "tier": "POSSIBLE MATCH"}
+    assert client.post("/api/events", json=body).status_code == 204
+    assert client.post("/api/events", json={"event": "helpful", "answer": "yes"}).status_code == 400
+    assert client.post("/api/events", json={"event": "visit", "url": "https://x"}).status_code == 400
+    evil = {"Origin": "https://evil.example"}
+    assert client.post("/api/events", json={"event": "copy_link"}, headers=evil).status_code == 403
+    t = totals()
+    assert t == {"copy_link": 1, "ask_seller": 1, "helpful_yes_possible": 1}
+
+
+def test_stats_page_needs_the_admin_secret_and_is_rate_limited(client):
+    r = client.get("/admin/stats")
+    assert r.status_code == 401 and "Basic" in r.headers["www-authenticate"]
+    assert client.get("/admin/stats", headers=basic("wrong-password-" * 3)).status_code == 401
+    assert client.get("/admin/stats", headers=basic(WORKER)).status_code == 401
+    client.get("/?ref=facebook")
+    r = client.get("/admin/stats", headers=basic(ADMIN))
+    assert r.status_code == 200 and "Funnel" in r.text and "ref_facebook" in r.text
+    for _ in range(10):
+        client.get("/admin/stats", headers=basic("nope"))
+    assert client.get("/admin/stats", headers=basic(ADMIN)).status_code == 429
+
+
+def test_no_ip_address_or_user_agent_is_stored(client):
+    h = {"X-Forwarded-For": "203.0.113.77", "User-Agent": "SpecialAgent/9.9 (FingerprintMe)",
+         "Referer": "https://tracker.example/x"}
+    client.get("/?ref=reddit", headers=h)
+    client.get("/api/lookup?q=crib", headers=h)
+    client.post("/api/events", json={"event": "copy_link"}, headers=h)
+    ask(client, ip="203.0.113.77")
+    server.COUNTS.flush()
+    dump = repr(server.STORE.counts("2000-01-01")) + repr(server.STORE.all())
+    for leak in ("203.0.113.77", "SpecialAgent", "FingerprintMe", "tracker.example"):
+        assert leak not in dump

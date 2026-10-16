@@ -351,3 +351,12 @@ input[type=text]:focus-visible, input[type=search]:focus-visible, input[type=ema
 @media (min-width: 900px) { .gallery[data-set=curated] { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1100px) { .gallery[data-set=curated] { grid-template-columns: repeat(4, 1fr); } }
 .example .sticker { width: 78px; font-size: 12px; font-stretch: 100%; padding: 2px; }
+
+/* stats page (private) and feedback */
+.stats { padding-top: 24px; padding-bottom: 40px; }
+.table-wrap { overflow-x: auto; margin: 12px 0 16px; }
+.results { border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); }
+.results th, .results td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 14px; white-space: nowrap; }
+.funnel li { margin: 4px 0; }
+.helpful { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px; }
+.helpful .secondary { min-height: 38px; padding: 6px 16px; }

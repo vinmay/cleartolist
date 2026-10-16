@@ -33,7 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.formparsers import MultiPartParser
 
-from demo import cards, security
+from demo import analytics, cards, security
 from demo import store as signup_store
 from demo.jobs import MAX_BATCH, JobQueue, QueueFull, TooManyPending
 
@@ -71,10 +71,23 @@ def ensure_db() -> None:
     tmp.replace(DB)
 
 
+async def _flush_counts_every_minute() -> None:
+    import asyncio
+
+    while True:
+        await asyncio.sleep(60)
+        await asyncio.to_thread(COUNTS.flush)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    import asyncio
+
     ensure_db()
+    task = asyncio.create_task(_flush_counts_every_minute())
     yield
+    task.cancel()
+    COUNTS.flush()
 
 
 app = FastAPI(title="ClearToList", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
@@ -128,6 +141,9 @@ class DailyQuota:
 QUEUE = JobQueue()
 QUOTA = DailyQuota()
 STORE = signup_store.from_env()
+COUNTS = analytics.Counts(STORE)
+EVENT_LIMIT = security.RateLimiter(60, 60)  # usage events per client per minute
+STATS_LIMIT = security.RateLimiter(10, 600)  # stats page attempts per client per 10 min
 SIGNUP_LIMIT = security.RateLimiter(5, 3600)  # invite requests per client per hour
 NONCES = security.NonceStore()
 STATE: dict[str, Any] = {"worker_seen": 0.0, "uploads_override": None}
@@ -291,8 +307,14 @@ def lookup(q: str, children_only: bool = False, limit: int = 20) -> list[dict[st
 
 # --- public pages and lookup ---------------------------------------------------------------------------------
 
+def count_visit(ref: str | None) -> None:
+    COUNTS.add("page_view")
+    COUNTS.add(analytics.ref_metric(ref))
+
+
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
+def index(ref: Annotated[str | None, Query(max_length=40)] = None) -> str:
+    count_visit(ref)  # the ?ref= tag only, reduced to an allowlist; no referrer header, no URL
     return (ROOT / "static" / "index.html").read_text()
 
 
@@ -316,11 +338,13 @@ def api_recall(request: Request, recall_id: Annotated[int, Path(ge=1, le=10_000_
 
 
 @app.get("/recall/{recall_id}", response_class=HTMLResponse)
-def recall_page(recall_id: Annotated[int, Path(ge=1, le=10_000_000)]) -> HTMLResponse:
+def recall_page(recall_id: Annotated[int, Path(ge=1, le=10_000_000)],
+                ref: Annotated[str | None, Query(max_length=40)] = None) -> HTMLResponse:
     """A shareable link to one recall (its id only, never a photo). The page is the homepage with this recall shown
     on top; the preview tags carry the recall's short name, escaped."""
     import html
 
+    count_visit(ref)
     d = recall_by_id(recall_id)
     page = (ROOT / "static" / "index.html").read_text()
     if d is None:
@@ -343,6 +367,7 @@ def api_lookup(request: Request, q: str = Query(..., min_length=2, max_length=12
                children: bool = False) -> dict[str, Any]:
     if not LOOKUP_LIMIT.allow(client_of(request)):
         raise HTTPException(429, "Too many searches. Please wait a minute.")
+    COUNTS.add("lookup")
     return {"query": q, "results": lookup(q, children)}
 
 
@@ -453,6 +478,7 @@ async def create_job(request: Request, photo: Annotated[UploadFile, File()],
         QUEUE.count("rejected_upload")
         raise HTTPException(400, str(e)) from e
     job = enqueue(client, photos, public)
+    COUNTS.add("real_scan")
     return {"job": job.id, "state": job.state}
 
 
@@ -467,6 +493,7 @@ async def create_sample(request: Request, name: str) -> dict[str, Any]:
     photos = {k: security.sanitize_image((SAMPLES_DIR / f).read_bytes()) for k, f in files.items()}
     job = enqueue(client, photos, public=False)
     QUEUE.count("sample")
+    COUNTS.add("sample_scan")
     return {"job": job.id, "state": job.state}
 
 
@@ -489,6 +516,7 @@ async def create_batch(request: Request, photos: Annotated[list[UploadFile], Fil
             QUEUE.count("rejected_upload")
             raise HTTPException(400, f"Photo {i + 1}: {e}") from e
     job = enqueue(client, clean, public, kind="batch")
+    COUNTS.add("batch_scan")
     return {"job": job.id, "state": job.state, "photos": len(clean)}
 
 
@@ -630,6 +658,8 @@ async def worker_result(request: Request, job_id: str) -> dict[str, bool]:
     except (ValidationError, ValueError) as e:
         QUEUE.finish(job_id, None)
         raise HTTPException(400, "Invalid result.") from e
+    for r in rendered.get("items", [rendered]):
+        COUNTS.add(f"verdict_{analytics.TIERS[r['verdict']]}")
     if not QUEUE.finish(job_id, rendered):
         raise HTTPException(409, "Job is not running.")
     return {"ok": True}
@@ -681,6 +711,9 @@ async def invite_request(request: Request, body: InviteRequest) -> dict[str, Any
         log.warning("invite request not stored: %s", type(e).__name__)
         raise HTTPException(503, "We couldn't save that right now. Please try again in a few minutes.") from e
     QUEUE.count("signup")
+    COUNTS.add("invite_request")
+    if body.alerts:
+        COUNTS.add("alert_signup")
     return thanks
 
 
@@ -699,6 +732,79 @@ async def admin_invite_requests(request: Request) -> Response:
     for row in STORE.all():
         w.writerow(row)
     return Response(buf.getvalue(), media_type="text/csv")
+
+
+# --- anonymous usage events and the private stats page -------------------------------------------------------------
+
+class Event(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    event: Literal["copy_link", "ask_seller", "helpful"]
+    answer: Literal["yes", "no"] | None = None
+    tier: Literal["CONFIRMED", "POSSIBLE MATCH", "NO MATCH FOUND"] | None = None
+
+
+@app.post("/api/events", status_code=204)
+def usage_event(request: Request, e: Event) -> Response:
+    """Counts a click as a daily total. Nothing identifies who clicked."""
+    if not same_origin(request):
+        raise HTTPException(403, "Cross-site requests are not allowed.")
+    if not EVENT_LIMIT.allow(client_of(request)):
+        raise HTTPException(429, "Too many requests.")
+    if e.event == "helpful":
+        if e.answer is None or e.tier is None:
+            raise HTTPException(400, "Invalid request.")
+        COUNTS.add(f"helpful_{e.answer}_{analytics.TIERS[e.tier]}")
+    else:
+        COUNTS.add(e.event)
+    return Response(status_code=204)
+
+
+def admin_password_ok(request: Request) -> bool:
+    import base64
+    import hmac
+
+    secret = env_secret("CTL_ADMIN_SECRET")
+    auth = request.headers.get("authorization", "")
+    if not secret or len(secret) < 32 or not auth.lower().startswith("basic "):
+        return False
+    try:
+        _, _, password = base64.b64decode(auth[6:].strip(), validate=True).decode().partition(":")
+    except (ValueError, UnicodeDecodeError):
+        return False
+    return hmac.compare_digest(password.encode(), secret.encode())
+
+
+@app.get("/admin/stats", response_class=HTMLResponse)
+def admin_stats(request: Request) -> HTMLResponse:
+    """Private daily totals and a simple funnel. HTTP Basic auth, password = the admin secret (any user name)."""
+    import html
+
+    if not STATS_LIMIT.allow(client_of(request)):
+        raise HTTPException(429, "Too many attempts. Please wait a few minutes.")
+    if not admin_password_ok(request):
+        raise HTTPException(401, "Unauthorized.", headers={"WWW-Authenticate": 'Basic realm="ClearToList stats"'})
+    since = time.strftime("%Y-%m-%d", time.gmtime(time.time() - 29 * 86400))
+    days = COUNTS.totals(since)
+    total: dict[str, int] = {}
+    for d in days.values():
+        for k, v in d.items():
+            total[k] = total.get(k, 0) + v
+    scans = total.get("sample_scan", 0) + total.get("real_scan", 0) + total.get("batch_scan", 0)
+    helpful_yes = sum(v for k, v in total.items() if k.startswith("helpful_yes_"))
+    funnel = [("Visits", total.get("page_view", 0)), ("Scans", scans), ("Helpful: yes", helpful_yes),
+              ("Invite requests", total.get("invite_request", 0))]
+    cols = sorted(analytics.METRICS)
+    head = "".join(f"<th scope=\"col\">{html.escape(c)}</th>" for c in cols)
+    body = "".join(f"<tr><th scope=\"row\">{html.escape(d)}</th>" + "".join(
+        f"<td>{days[d].get(c, 0)}</td>" for c in cols) + "</tr>" for d in sorted(days, reverse=True))
+    fun = "".join(f"<li><strong>{html.escape(k)}</strong>: {v}</li>" for k, v in funnel)
+    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport"
+content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>ClearToList stats</title>
+<link rel="stylesheet" href="/static/app.css"></head><body><main class="stats"><h1>Usage, last 30 days</h1>
+<p class="muted">Daily totals only. No cookies, IP addresses, user agents or per-person data are stored.</p>
+<h2>Funnel</h2><ol class="funnel">{fun}</ol><h2>Daily totals</h2><div class="table-wrap"><table class="results">
+<thead><tr><th scope="col">Day</th>{head}</tr></thead><tbody>{body}</tbody></table></div></main></body></html>"""
+    return HTMLResponse(page, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
 
 # --- admin: instant kill switch and anonymous counts (signed with a separate secret) -------------------------
